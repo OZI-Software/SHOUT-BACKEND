@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum for user roles, based on the 'users' table design
+enum userRole {
+  ADMIN
+  STAFF
+}
+
+// Enum for offer status, based on the 'offers' table design
+enum OfferStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  EXPIRED
+}
+
+model User {
+  // Corresponds to PK id (uuid)
+  userId String @id @default(uuid())
+
+  // Corresponds to email (string)
+  email String @unique
+
+  // Corresponds to role (enum)
+  role userRole @default(STAFF)
+
+  // Corresponds to created_at
+  createdAt DateTime @default(now())
+
+  // --- Relations ---
+
+  // 1-to-1 relation to a Business profile
+  business Business?
+
+  // 1-to-many relation for an Admin creating offers
+  createdOffers Offer[] @relation("AdminOffers")
+
+  @@map("users")
+}
+
+model Business {
+  // Corresponds to PK id (uuid)
+  businessId String @id @default(uuid())
+
+  // This is a 1-to-1 relation
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [userId])
+
+  // Corresponds to business_name (string)
+  businessName String
+
+  // Corresponds to description (text)
+  description String
+
+  // Corresponds to address (text)
+  address String
+
+  pinCode Int
+
+  latitude  Float
+  longitude Float
+
+  // Corresponds to created_at
+  createdAt DateTime @default(now())
+
+  // add a GIST index manually in SQL for PostGIS:
+  // CREATE INDEX "business_location_idx" ON "Business" USING GIST (
+  //   ST_MakePoint(longitude, latitude)::geography
+  // );
+
+  @@index([latitude, longitude, businessId])
+  @@map("businesses")
+}
+
+model Offer {
+  // Corresponds to PK id (uuid)
+  id String @id @default(uuid())
+
+  // Corresponds to FK creator_id(uuid)
+  creatorId String
+  creator   User   @relation("AdminOffers", fields: [creatorId], references: [userId])
+
+  // Corresponds to title (string)
+  title String
+
+  // Corresponds to description (text)
+  description String
+
+  // Corresponds to image_url (string)
+  imageUrl String
+
+  // Corresponds to status (enum)
+  status OfferStatus @default(DRAFT)
+
+  // Corresponds to start_datetime
+  startDateTime DateTime
+
+  // Corresponds to end_datetime
+  endDateTime DateTime
+
+  // --- PostGIS Workaround ---
+  // Corresponds to target_location(point)
+  targetLatitude  Float
+  targetLongitude Float
+
+  // Corresponds to target_radius_m (int)
+  targetRadiusMeters Int
+
+  // Corresponds to reposted_from (uuid)
+  // This is a self-referencing relation to track reposts
+  repostedFromOfferId String?
+  repostedFrom        Offer?  @relation("Repost", fields: [repostedFromOfferId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Relation to track offers that were reposted from this one
+  repostedOffers Offer[] @relation("Repost")
+
+  // Corresponds to created_at
+  createdAt DateTime @default(now())
+  // add a GIST index manually in SQL for PostGIS:
+  // CREATE INDEX "offer_target_location_idx" ON "Offer" USING GIST (
+  //   ST_MakePoint(targetLongitude, targetLatitude)::geography
+  // );
+
+  @@index([targetLatitude, targetLongitude, id])
+  @@index([creatorId])
+  @@index([repostedFromOfferId])
+  @@index([status, startDateTime, endDateTime])
+}
