@@ -1,5 +1,5 @@
 import type { Response, NextFunction } from 'express';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { db } from '../db/prisma.js';
 import { HttpError } from '../../config/index.js'
 import type {AuthRequest, JwtPayload} from '../../config/index.js'
@@ -49,9 +49,11 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     // 3. Attach user object to the request
     req.user = user;
     next();
-  } catch (error) {
+  } catch (error: any) {
     // Handle JWT errors (e.g., expired, invalid signature)
-    if (error instanceof jwt.JsonWebTokenError) {
+    if (error?.name === 'JsonWebTokenError' || 
+        error?.name === 'TokenExpiredError' || 
+        error?.name === 'NotBeforeError') {
       logger.warn(`[Auth:${requestId}] JWT verification failed: ${error.message}`);
       return next(new HttpError('Invalid or expired token', 401));
     }

@@ -17,6 +17,18 @@ interface CreateOfferDto {
   status?: OfferStatus;
 }
 
+interface UpdateOfferDto {
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  status?: OfferStatus;
+  startDateTime?: Date;
+  endDateTime?: Date;
+  targetLatitude?: number;
+  targetLongitude?: number;
+  targetRadiusMeters?: number;
+}
+
 class OfferService {
   /**
    * Creates a new offer associated with the creatorId (business owner/admin).
@@ -105,34 +117,101 @@ class OfferService {
   public async findNearbyActiveOffers(latitude: number, longitude: number, radiusMeters: number): Promise<Offer[]> {
     logger.info(`[Offers] Finding nearby active offers - lat: ${latitude}, lng: ${longitude}, radius: ${radiusMeters}m`);
     
-    if (!process.env.DATABASE_URL?.includes('postgis')) {
-        logger.warn('[Offers] PostGIS not detected/configured. Falling back to basic query.');
-        return [];
-    }
+    // if (!process.env.DATABASE_URL?.includes('postgis')) {
+    //     logger.warn('[Offers] PostGIS not detected/configured. Falling back to basic query.');
+    //     return [];
+    // }
 
     logger.debug(`[Offers] Using PostGIS for geo-filtering active offers`);
 
-    // Raw SQL for PostGIS distance calculation and filtering for ACTIVE offers
-    const nearbyOffers = await db.$queryRaw<Offer[]>`
-      SELECT 
-        *,
-        ST_Distance(
-          ST_MakePoint("targetLongitude", "targetLatitude")::geography, 
-          ST_MakePoint(${longitude}, ${latitude})::geography
-        ) as distanceMeters
-      FROM "Offer"
-      WHERE "status" = 'ACTIVE' 
-      AND ST_DWithin(
-        ST_MakePoint("targetLongitude", "targetLatitude")::geography,
-        ST_MakePoint(${longitude}, ${latitude})::geography,
-        ${radiusMeters}
-      )
-      ORDER BY distanceMeters
-    `;
+    // // Raw SQL for PostGIS distance calculation and filtering for ACTIVE offers
+    // const nearbyOffers = await db.$queryRaw<Offer[]>`
+    //   SELECT 
+    //     *,
+    //     ST_Distance(
+    //       ST_MakePoint("targetLongitude", "targetLatitude")::geography, 
+    //       ST_MakePoint(${longitude}, ${latitude})::geography
+    //     ) as distanceMeters
+    //   FROM "Offer"
+    //   WHERE "status" = 'ACTIVE' 
+    //   AND ST_DWithin(
+    //     ST_MakePoint("targetLongitude", "targetLatitude")::geography,
+    //     ST_MakePoint(${longitude}, ${latitude})::geography,
+    //     ${radiusMeters}
+    //   )
+    //   ORDER BY distanceMeters
+    // `;
     
+
+    const R = 6371000; // Earth radius in meters
+
+const nearbyOffers = await db.$queryRaw<Offer[]>`
+  SELECT 
+    *,
+    (
+      ${R} * acos(
+        least(1, cos(radians(${latitude}))
+        * cos(radians("targetLatitude"))
+        * cos(radians("targetLongitude") - radians(${longitude})) 
+        + sin(radians(${latitude})) 
+        * sin(radians("targetLatitude")))
+      )
+    ) AS distanceMeters
+  FROM "offers"
+  WHERE "status" = 'ACTIVE'
+  AND (
+    ${R} * acos(
+      least(1, cos(radians(${latitude}))
+      * cos(radians("targetLatitude"))
+      * cos(radians("targetLongitude") - radians(${longitude})) 
+      + sin(radians(${latitude})) 
+      * sin(radians("targetLatitude")))
+    )
+  ) <= ${radiusMeters}
+  ORDER BY distanceMeters
+`;
+
     logger.info(`[Offers] Found ${nearbyOffers.length} active offers within ${radiusMeters}m radius`);
     return nearbyOffers;
   }
+
+  /**
+   * Updates an existing offer, ensuring the caller is the creator.
+   */
+  public async updateOffer(offerId: string, creatorId: string, dto: UpdateOfferDto): Promise<Offer> {
+    // 1. Check if the offer exists and if the user is the creator
+    const offerToUpdate = await db.offer.findUnique({
+      where: { id: offerId },
+      select: { id: true, creatorId: true, status: true },
+    });
+
+    if (!offerToUpdate) {
+      throw new HttpError('Offer not found', 404);
+    }
+
+    if (offerToUpdate.creatorId !== creatorId) {
+      throw new HttpError('Forbidden: You can only update your own offers', 403);
+    }
+
+    // 2. Prevent updates if the offer is already expired
+    if (offerToUpdate.status === OfferStatus.EXPIRED) {
+        throw new HttpError('Cannot update an expired offer', 400);
+    }
+
+    // 3. Perform the update
+    try {
+      const updatedOffer = await db.offer.update({
+        where: { id: offerId },
+        data: dto,
+      });
+      return updatedOffer;
+    } catch (error) {
+      // P2025 is typically "Record to update not found", but we already checked.
+      // We'll log and throw a general error for other DB issues.
+      logger.error('Error updating offer:', error);
+      throw new HttpError('Failed to update offer', 500);
+    }
+}
 }
 
 export const offerService = new OfferService();

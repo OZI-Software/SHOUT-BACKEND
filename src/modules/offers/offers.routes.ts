@@ -20,6 +20,9 @@ class OffersRoutes {
     
     // Create new offer
     this.router.post('/', offerController.createOffer);
+
+    // Update existing offer (NEW ROUTE)
+    this.router.put('/:id', offerController.updateOffer); // Using PUT for full replacement/update
     
     // Repost an existing offer
     this.router.post('/:id/repost', offerController.repostOffer);

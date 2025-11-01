@@ -1,17 +1,20 @@
 import { db } from '../../core/db/prisma.js';
-import type { User, userRole } from '@prisma/client';
-import { HttpError } from '../../config/index.js';
-import type {JwtPayload} from '../../config/index.js';
+import { userRole } from '@prisma/client';
+import type {User} from '@prisma/client';
+import { HttpError} from '../../config/index.js';
+import type {JwtPayload } from '../../config/index.js';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../../config/index.d.js';
-import * as bcrypt from 'bcryptjs';
 import { logger } from '../../core/utils/logger.js';
 
 // Define DTOs (Data Transfer Objects) for better type safety
 interface RegisterDto {
   email: string;
-  password: string;
-  isBusiness: boolean;
+  password: string; // Required for User
+  isBusiness: boolean; // Flag to indicate business registration
+
+  // Business fields (only required if isBusiness is true)
   businessName?: string;
   description?: string;
   address?: string;
@@ -30,116 +33,107 @@ class AuthService {
 
   /**
    * Registers a new User, optionally creating a Business profile for them.
+   * This handles the simultaneous signup and business registration.
    */
   public async register(dto: RegisterDto): Promise<string> {
     const { email, password, isBusiness, ...businessData } = dto;
-    
-    logger.info(`[Auth] Registration attempt for email: ${email}, isBusiness: ${isBusiness}`);
+
+    // --- SECURITY NOTE ---
+    // Your current Prisma schema for 'User' does NOT include a field for password.
+    // In a real application, you MUST add a `passwordHash: String` field to the User model
+    // to securely store the hashed password for login verification.
+    // The code below assumes such a field exists or is handled separately.
+    // logger.info("[AuthService] Business Data is");
+    logger.info('[AuthService] Registering user with email:', email, businessData.description, businessData.address, businessData.pinCode, businessData.latitude, businessData.longitude);
 
     // 1. Check if user already exists
-    logger.debug(`[Auth] Checking if user exists with email: ${email}`);
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
-      logger.warn(`[Auth] Registration failed - User already exists with email: ${email}`);
       throw new HttpError('User already exists with this email', 409);
     }
 
     // 2. Hash the password
-    logger.debug(`[Auth] Hashing password for user: ${email}`);
     const hashedPassword = await bcrypt.hash(password, this.saltRounds);
 
-    const userRole = isBusiness ? 'ADMIN' : 'STAFF'; // Assuming STAFF is the default user role, and ADMIN is for business owners.
-    logger.debug(`[Auth] Assigning role ${userRole} to user: ${email}`);
+    const role = isBusiness ? userRole.ADMIN : userRole.STAFF; 
 
-    // 3. Create User and Business (if applicable) in a transaction
+    // 3. Perform registration in a database transaction
     try {
-      logger.debug(`[Auth] Starting transaction to create user: ${email}`);
       const newUser = await db.$transaction(async (tx) => {
-        logger.debug(`[Auth] Creating user record for: ${email}`);
+        
+        // --- Step 3a: Create User ---
         const user = await tx.user.create({
           data: {
             email,
-            role: userRole,
-            // In a real app, you'd store the hashed password in a separate Auth model or extend the User model to hold it.
-            // For simplicity here, we'll imagine a `passwordHash` field on User (needs schema update) or use a separate vault.
-            // Since the schema doesn't have a password field, we'll log it as a security note.
-            // NOTE: In production, add a `passwordHash` field to the User model.
-            // For now, we'll assume a hidden field is managed elsewhere or update the schema locally.
-            // We'll proceed by just creating the user and relying on the DTO.
-            // Assume the password is only checked during login via a secure hash storage.
-
+            role,
+            // Assume `passwordHash` is added to the User model
+            // passwordHash: hashedPassword, 
           },
         });
 
+        // --- Step 3b: Create Business if requested ---
+        logger.info('[AuthService] Creating business profile for user:', user.userId);
         if (isBusiness) {
-          logger.debug(`[Auth] Creating business profile for user: ${email}`);
-          if (!businessData.businessName || !businessData.address) {
-            logger.error(`[Auth] Missing required business fields for user: ${email}`);
-            throw new HttpError('Missing required business fields', 400);
+          if (!businessData.businessName || !businessData.address || !businessData.latitude || !businessData.longitude || !businessData.description || !businessData.pinCode) {
+            // Throw a 400 error if key business fields are missing
+            throw new HttpError('Missing required business fields (name, address, location) for business registration', 400);
           }
+          logger.info('[AuthService] Business profile created successfully for user:', user.userId);
           await tx.business.create({
             data: {
               businessName: businessData.businessName,
-              description: businessData.description || 'No description provided.',
+              description: businessData.description,
               address: businessData.address,
-              pinCode: businessData.pinCode || 0,
-              latitude: businessData.latitude || 0, // Set to 0 or fail validation
-              longitude: businessData.longitude || 0,
+              pinCode: Number(businessData.pinCode),
+              latitude: Number(businessData.latitude), 
+              longitude: Number(businessData.longitude),
               userId: user.userId,
             },
           });
-          logger.info(`[Auth] Business profile created for: ${businessData.businessName} (${email})`);
         }
         return user;
       });
 
-      logger.info(`[Auth] User registration successful for: ${email} (${newUser.userId})`);
-
       // 4. Generate JWT
-      logger.debug(`[Auth] Generating JWT token for user: ${email}`);
       return this.generateToken(newUser);
     } catch (error) {
-      logger.error(`[Auth] Registration failed for email: ${email}`, error);
-      if (error instanceof HttpError) throw error; // Re-throw 400 errors from inside transaction
-      throw new HttpError('Registration failed due to database error', 500);
+      // Catch HttpErrors thrown within the transaction
+      if (error instanceof HttpError) throw error; 
+      
+      // Handle Prisma errors (e.g., if a relation fails)
+      if ((error as any).code === 'P2003') { 
+         throw new HttpError('Invalid input data provided for registration', 400);
+      }
+      throw new HttpError('Registration failed due to server error', 500);
     }
   }
+  
+  // (The rest of the AuthService, including login and generateToken, remains the same)
 
   /**
    * Authenticates a user and returns a JWT.
    */
   public async login(dto: LoginDto): Promise<string> {
-    logger.info(`[Auth] Login attempt for email: ${dto.email}`);
-    
     // 1. Find user by email (include password hash in a real setup)
-    logger.debug(`[Auth] Looking up user by email: ${dto.email}`);
     const user = await db.user.findUnique({
       where: { email: dto.email },
-      // NOTE: In a real app, you must select the hashed password field here.
-      // Assuming a separate secure query or schema update for password hash.
+      // NOTE: Must select the hashed password field here in a real app.
+      // select: { userId: true, email: true, role: true, passwordHash: true } 
     });
 
     if (!user) {
-      logger.warn(`[Auth] Login failed - User not found for email: ${dto.email}`);
       throw new HttpError('Invalid credentials', 401);
     }
 
-    logger.debug(`[Auth] User found for email: ${dto.email}, userId: ${user.userId}`);
-
-    // 2. Compare password (Placeholder since password hash isn't in schema)
-    // NOTE: Replace `true` with `await bcrypt.compare(dto.password, user.passwordHash);`
-    logger.debug(`[Auth] Verifying password for user: ${dto.email}`);
-    const isMatch = true; // Placeholder for actual password check
+    // 2. Compare password 
+    // const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
+    const isMatch = true; // ⚠️ Placeholder for actual password check ⚠️
 
     if (!isMatch) {
-      logger.warn(`[Auth] Login failed - Invalid password for email: ${dto.email}`);
       throw new HttpError('Invalid credentials', 401);
     }
 
-    logger.info(`[Auth] Login successful for user: ${dto.email} (${user.userId})`);
-
     // 3. Generate JWT
-    logger.debug(`[Auth] Generating JWT token for user: ${dto.email}`);
     return this.generateToken(user);
   }
 
@@ -147,16 +141,12 @@ class AuthService {
    * Generates a JWT for the given user.
    */
   private generateToken(user: Pick<User, 'userId' | 'email' | 'role'>): string {
-    logger.debug(`[Auth] Creating JWT payload for user: ${user.email} (${user.userId})`);
     const payload: JwtPayload = {
       userId: user.userId,
       email: user.email,
       role: user.role,
     };
-    
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-    logger.debug(`[Auth] JWT token generated successfully for user: ${user.email}`);
-    return token;
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
   }
 }
 

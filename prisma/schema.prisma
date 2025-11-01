@@ -132,4 +132,5 @@ model Offer {
   @@index([creatorId])
   @@index([repostedFromOfferId])
   @@index([status, startDateTime, endDateTime])
+  @@map("offers")
 }

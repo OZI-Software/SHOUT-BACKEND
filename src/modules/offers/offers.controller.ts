@@ -11,8 +11,8 @@ class OfferController {
       if (!req.user) throw new HttpError('Not authenticated', 401);
       
       // Validation check for mandatory fields (simplified)
-      const { title, description, startDateTime, endDateTime } = req.body;
-      if (!title || !description || !startDateTime || !endDateTime) {
+      const { title, description, startDateTime, endDateTime, imageUrl, targetLatitude, targetLongitude, targetRadiusMeters } = req.body;
+      if (!title || !description || !startDateTime || !endDateTime || !imageUrl || !targetLatitude || !targetLongitude || !targetRadiusMeters) {
           throw new HttpError('Missing required fields', 400);
       }
 
@@ -20,6 +20,9 @@ class OfferController {
         ...req.body,
         startDateTime: new Date(startDateTime),
         endDateTime: new Date(endDateTime),
+        targetRadiusMeters: parseFloat(targetRadiusMeters),
+        targetLatitude: parseFloat(targetLatitude),
+        targetLongitude: parseFloat(targetLongitude),
       });
 
       res.status(201).json({ status: 'success', data: offer });
@@ -73,6 +76,46 @@ class OfferController {
       next(error);
     }
   };
+
+  /**
+   * PUT /api/v1/offers/:id
+   * Updates an existing offer.
+   */
+  public updateOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+      const { id } = req.params;
+      const creatorId = req.user.userId;
+
+      // Prepare DTO, converting dates and numbers
+      const updateData: any = {};
+      
+      // Sanitization and type conversion
+      if (req.body.startDateTime) updateData.startDateTime = new Date(req.body.startDateTime);
+      if (req.body.endDateTime) updateData.endDateTime = new Date(req.body.endDateTime);
+      if (req.body.targetLatitude) updateData.targetLatitude = parseFloat(req.body.targetLatitude);
+      if (req.body.targetLongitude) updateData.targetLongitude = parseFloat(req.body.targetLongitude);
+      if (req.body.targetRadiusMeters) updateData.targetRadiusMeters = parseInt(req.body.targetRadiusMeters, 10);
+      if (req.body.title) updateData.title = req.body.title;
+      if (req.body.description) updateData.description = req.body.description;
+      if (req.body.imageUrl) updateData.imageUrl = req.body.imageUrl;
+      // Ensure status is a valid enum value if provided
+      if (req.body.status && Object.values(OfferStatus).includes(req.body.status)) {
+        updateData.status = req.body.status;
+      }
+      
+      // If no valid fields were provided for update
+      if (Object.keys(updateData).length === 0) {
+        throw new HttpError('No valid fields provided for update', 400);
+      }
+
+      const updatedOffer = await offerService.updateOffer(id as string, creatorId, updateData);
+
+      res.status(200).json({ status: 'success', data: updatedOffer });
+    } catch (error) {
+      next(error);
+    }
+}
 }
 
 export const offerController = new OfferController();

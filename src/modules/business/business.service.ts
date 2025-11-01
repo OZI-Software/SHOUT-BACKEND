@@ -1,5 +1,5 @@
 import { db } from '../../core/db/prisma.js';
-import type { Business } from '../../../generated/prisma/client.js';
+import type { Business } from '@prisma/client';
 import { HttpError } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';
 
@@ -65,32 +65,61 @@ class BusinessService {
   public async findNearbyBusinesses(latitude: number, longitude: number, radiusMeters: number): Promise<Business[]> {
     logger.info(`[Business] Finding nearby businesses - lat: ${latitude}, lng: ${longitude}, radius: ${radiusMeters}m`);
     
-    if (!process.env.DATABASE_URL?.includes('postgis')) {
-        logger.warn('[Business] PostGIS not detected/configured. Falling back to basic query.');
-        // Fallback or throw error if Geo-filtering is mandatory
-        return [];
-    }
+    // if (!process.env.DATABASE_URL?.includes('postgis')) {
+    //     logger.warn('[Business] PostGIS not detected/configured. Falling back to basic query.');
+    //     // Fallback or throw error if Geo-filtering is mandatory
+    //     return [];
+    // }
     
-    logger.debug(`[Business] Using PostGIS for geo-filtering query`);
+    // logger.debug(`[Business] Using PostGIS for geo-filtering query`);
     
-    // Raw SQL for PostGIS distance calculation and filtering
-    // ST_DWithin checks if two geometries are within a specified distance
-    const nearbyBusinesses = await db.$queryRaw<Business[]>`
-      SELECT 
-        *,
-        ST_Distance(
-          ST_MakePoint(longitude, latitude)::geography, 
-          ST_MakePoint(${longitude}, ${latitude})::geography
-        ) as distanceMeters
-      FROM "businesses"
-      WHERE ST_DWithin(
-        ST_MakePoint(longitude, latitude)::geography,
-        ST_MakePoint(${longitude}, ${latitude})::geography,
-        ${radiusMeters}
+    // // Raw SQL for PostGIS distance calculation and filtering
+    // // ST_DWithin checks if two geometries are within a specified distance
+    // const nearbyBusinesses = await db.$queryRaw<Business[]>`
+    //   SELECT 
+    //     *,
+    //     ST_Distance(
+    //       ST_MakePoint(longitude, latitude)::geography, 
+    //       ST_MakePoint(${longitude}, ${latitude})::geography
+    //     ) as distanceMeters
+    //   FROM "businesses"
+    //   WHERE ST_DWithin(
+    //     ST_MakePoint(longitude, latitude)::geography,
+    //     ST_MakePoint(${longitude}, ${latitude})::geography,
+    //     ${radiusMeters}
+    //   )
+    //   ORDER BY distanceMeters
+    // `;
+    
+    // Fallback SQL-based calculation using Haversine for distance
+
+const R = 6371000; // Earth radius in meters
+
+const nearbyBusinesses = await db.$queryRaw<Business[]>`
+  SELECT
+    *,
+    (
+      ${R} * acos(
+        least(1, cos(radians(${latitude}))
+        * cos(radians(latitude))
+        * cos(radians(longitude) - radians(${longitude}))
+        + sin(radians(${latitude}))
+        * sin(radians(latitude)))
       )
-      ORDER BY distanceMeters
-    `;
-    
+    ) AS distanceMeters
+  FROM "businesses"
+  WHERE (
+    ${R} * acos(
+      least(1, cos(radians(${latitude}))
+      * cos(radians(latitude))
+      * cos(radians(longitude) - radians(${longitude}))
+      + sin(radians(${latitude}))
+      * sin(radians(latitude)))
+    )
+  ) <= ${radiusMeters}
+  ORDER BY distanceMeters
+`;
+
     logger.info(`[Business] Found ${nearbyBusinesses.length} businesses within ${radiusMeters}m radius`);
     return nearbyBusinesses;
   }

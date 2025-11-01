@@ -1,5 +1,5 @@
 import { db } from '../../core/db/prisma.js';
-import type { User } from '../../../generated/prisma/client.js';
+import type { User } from '@prisma/client';
 import { HttpError } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';    
 
