@@ -1,81 +1,47 @@
 import type { Request, Response, NextFunction } from 'express';
-import  { AuthService } from './auth.service.js';
-import logger  from '../../core/utils/logger.js';
-import type { IAuthRequest } from '../../core/types/index.d.js';
-// import { userRole } from '../../../generated/prisma/index.js';
+import { authService } from './auth.service.js';
 
-/**
- * AuthenticationController manages the API endpoints for user identity.
- * It strictly handles request/response and delegates business logic to AuthService.
- */
-export class AuthController {
-  private authService: AuthService;
-
-  constructor(authService: AuthService) {
-    this.authService = authService;
-  }
-
-  /**
-   * [POST /api/auth/register] Registers a new staff member.
-   */
-  registerStaff = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+class AuthController {
+  // POST /api/v1/auth/register
+  public register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { name, email, password, businessId } = req.body;
-      
-      if (!name || !email || !password || !businessId) {
-         return next({ statusCode: 400, message: 'Missing required registration fields.' });
+      // Basic validation (more robust validation should be used, e.g., Joi/Zod)
+      const { email, password, isBusiness } = req.body;
+      if (!email || !password) {
+        return next(new Error('Email and password are required.'));
       }
-      // if (!Object.values(UserRole).includes(role)) {
-      //     return next({ statusCode: 400, message: 'Invalid user role specified.' });
-      // }
 
-      const user = await this.authService.registerStaff(name, email, password, businessId);
-      
-      res.status(201).json({ message: 'User created successfully.', userId: user.id });
+      const token = await authService.register(req.body);
+
+      res.status(201).json({
+        status: 'success',
+        message: 'Registration successful',
+        token,
+      });
     } catch (error) {
-      // Delegate to error middleware
       next(error);
     }
   };
 
-  /**
-   * [POST /api/auth/login] Logs in a user and returns a JWT.
-   */
-  login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // POST /api/v1/auth/login
+  public login = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password } = req.body;
-      
       if (!email || !password) {
-        return next({ statusCode: 400, message: 'Email and password are required.' });
+        return next(new Error('Email and password are required.'));
       }
 
-      const result = await this.authService.login(email, password);
-      
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
-  };
+      const token = await authService.login(req.body);
 
-  /**
-   * [POST /api/auth/fcm-token] Saves the user's FCM token for push notifications.
-   * Requires authentication (authMiddleware).
-   */
-  saveFCMToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const authReq = req as IAuthRequest;
-      const { fcmToken } = req.body;
-
-      if (!fcmToken) {
-        return next({ statusCode: 400, message: 'FCM token is required.' });
-      }
-
-      // Business logic handled by the service
-      await this.authService.saveFCMToken(authReq.userId, fcmToken);
-
-      res.status(200).json({ message: 'FCM token saved successfully.' });
+      res.status(200).json({
+        status: 'success',
+        message: 'Login successful',
+        token,
+      });
     } catch (error) {
       next(error);
     }
   };
 }
+
+export const authController = new AuthController();

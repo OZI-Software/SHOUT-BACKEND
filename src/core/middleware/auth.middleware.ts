@@ -1,10 +1,10 @@
 import type { Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { db } from '../db/prisma.js';
-import { HttpError} from '../types/index.js';
-import type { AuthRequest, JwtPayload } from '../types/index.js';
-import { JWT_SECRET } from '../../config/index.js';
-import { userRole } from '../../../generated/prisma/client.js';
+import { HttpError } from '../../config/index.js'
+import type {AuthRequest, JwtPayload} from '../../config/index.js'
+import { JWT_SECRET } from '../../config/index.d.js';
+import { userRole } from '@prisma/client';
 
 // Middleware to verify JWT and attach user data
 export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -26,7 +26,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     const user = await db.user.findUnique({
       where: { userId: decoded.userId },
       // Select only necessary/safe fields
-      select: { userId: true, email: true, role: true, business: true },
+      select: { userId: true, email: true, role: true, createdAt: true, business: true },
     });
 
     if (!user) {

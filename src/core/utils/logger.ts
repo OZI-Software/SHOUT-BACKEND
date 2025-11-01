@@ -1,6 +1,6 @@
-import winston from 'winston';
+import * as winston from 'winston';
 import 'winston-daily-rotate-file';
-import { NODE_ENV } from '../../config/index.js';
+import { NODE_ENV } from '../../config/index.d.js';
 
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -52,4 +52,4 @@ export const logger = winston.createLogger({
   level: NODE_ENV === 'development' ? 'debug' : 'info',
   format: logFormat,
   transports: transports,
-});
+} as any);
