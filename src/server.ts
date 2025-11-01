@@ -1,18 +1,49 @@
-import express from 'express';
+import { App } from './app.js';
 import { startOfferScheduler } from './core/utils/offerScheduler.js';
-const app:express.Express =express()
+import { logger } from './core/utils/logger.js';
 
-const port = 5000
- startOfferScheduler();
-app.use(express.json())
-// app.use(express.urlencoded({extended:true})
+const main = () => {
+  logger.info('[Server] Starting application...');
+  
+  try {
+    // 1. Start the Express App
+    logger.info('[Server] Initializing Express application');
+    const app = new App();
+    app.listen();
+    logger.info('[Server] Express application started successfully');
 
-app.get('/',(req,res)=>{
-    res.send('Hello World!')
-})
+    // 2. Start the cron jobs
+    logger.info('[Server] Starting offer scheduler');
+    startOfferScheduler();
+    logger.info('[Server] Offer scheduler started successfully');
 
-app.listen(port ,()=>{
-    console.log(`Server is running on port ${port}`)
-})
+    logger.info('[Server] Application startup completed successfully');
 
-export default app
+  } catch (error) {
+    logger.error('[Server] FATAL: Could not start the server.', error);
+    process.exit(1);
+  }
+};
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('[Server] SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.info('[Server] SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('[Server] Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+main();

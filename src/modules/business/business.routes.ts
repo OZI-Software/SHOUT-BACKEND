@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { businessController } from './business.controller.js';
 import { authMiddleware, roleMiddleware } from '../../core/middleware/auth.middleware.js';
-import { userRole } from '../../../generated/prisma/client.js';
+import { userRole } from '@prisma/client';
 
 class BusinessRoutes {
   public router: Router = Router();

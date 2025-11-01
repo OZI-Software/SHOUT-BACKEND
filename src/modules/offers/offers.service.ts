@@ -1,6 +1,6 @@
 import { db } from '../../core/db/prisma.js';
-import {  OfferStatus } from '../../../generated/prisma/client.js'
-import type {Offer} from '../../../generated/prisma/client.js';
+import {  OfferStatus } from '@prisma/client';
+import type {Offer} from '@prisma/client';
 import { HttpError } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';
 
@@ -22,6 +22,9 @@ class OfferService {
    * Creates a new offer associated with the creatorId (business owner/admin).
    */
   public async createOffer(creatorId: string, dto: CreateOfferDto): Promise<Offer> {
+    logger.info(`[Offers] Creating new offer for creatorId: ${creatorId}`);
+    logger.debug(`[Offers] Offer data:`, { title: dto.title, status: dto.status || OfferStatus.DRAFT });
+    
     try {
       const newOffer = await db.offer.create({
         data: {
@@ -30,9 +33,11 @@ class OfferService {
           status: dto.status || OfferStatus.DRAFT,
         },
       });
+      
+      logger.info(`[Offers] Offer created successfully - offerId: ${newOffer.id}, title: "${newOffer.title}"`);
       return newOffer;
     } catch (error) {
-      logger.error('Error creating offer:', error);
+      logger.error(`[Offers] Error creating offer for creatorId: ${creatorId}:`, error);
       throw new HttpError('Failed to create offer', 500);
     }
   }
@@ -41,13 +46,19 @@ class OfferService {
    * Finds a single offer by its ID.
    */
   public async findOfferById(id: string): Promise<Offer> {
+    logger.debug(`[Offers] Looking up offer by id: ${id}`);
+    
     const offer = await db.offer.findUnique({
       where: { id },
       include: { creator: { select: { email: true, role: true } } },
     });
+    
     if (!offer) {
+      logger.warn(`[Offers] Offer not found for id: ${id}`);
       throw new HttpError('Offer not found', 404);
     }
+    
+    logger.info(`[Offers] Offer found - id: ${id}, title: "${offer.title}", status: ${offer.status}`);
     return offer;
   }
 
@@ -55,7 +66,10 @@ class OfferService {
    * Reposts an existing offer, creating a new record linked to the original.
    */
   public async repostOffer(originalOfferId: string, creatorId: string): Promise<Offer> {
+    logger.info(`[Offers] Reposting offer - originalOfferId: ${originalOfferId}, creatorId: ${creatorId}`);
+    
     const originalOffer = await this.findOfferById(originalOfferId);
+    logger.debug(`[Offers] Original offer found for repost: "${originalOffer.title}"`);
 
     // Create a new offer based on the original, but with DRAFT status
     const newOfferData: CreateOfferDto = {
@@ -70,13 +84,18 @@ class OfferService {
         status: OfferStatus.DRAFT,
     };
     
-    return db.offer.create({
+    logger.debug(`[Offers] Creating repost with title: "${newOfferData.title}"`);
+    
+    const repostedOffer = await db.offer.create({
         data: {
             ...newOfferData,
             creatorId,
             repostedFromOfferId: originalOfferId,
         }
     });
+    
+    logger.info(`[Offers] Offer reposted successfully - newOfferId: ${repostedOffer.id}, originalOfferId: ${originalOfferId}`);
+    return repostedOffer;
   }
 
 
@@ -84,10 +103,14 @@ class OfferService {
    * Finds active offers within a certain radius of a given point (Geo-filtering for users).
    */
   public async findNearbyActiveOffers(latitude: number, longitude: number, radiusMeters: number): Promise<Offer[]> {
+    logger.info(`[Offers] Finding nearby active offers - lat: ${latitude}, lng: ${longitude}, radius: ${radiusMeters}m`);
+    
     if (!process.env.DATABASE_URL?.includes('postgis')) {
-        logger.warn('PostGIS not detected/configured. Falling back to basic query.');
+        logger.warn('[Offers] PostGIS not detected/configured. Falling back to basic query.');
         return [];
     }
+
+    logger.debug(`[Offers] Using PostGIS for geo-filtering active offers`);
 
     // Raw SQL for PostGIS distance calculation and filtering for ACTIVE offers
     const nearbyOffers = await db.$queryRaw<Offer[]>`
@@ -107,6 +130,7 @@ class OfferService {
       ORDER BY distanceMeters
     `;
     
+    logger.info(`[Offers] Found ${nearbyOffers.length} active offers within ${radiusMeters}m radius`);
     return nearbyOffers;
   }
 }

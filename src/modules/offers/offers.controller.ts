@@ -2,7 +2,7 @@ import type { Response, NextFunction } from 'express';
 import { offerService } from './offers.service.js';
 import { HttpError } from '../../config/index.js';
 import type {AuthRequest} from '../../config/index.js';
-import { OfferStatus } from '../../../generated/prisma/client.js';
+import { OfferStatus } from '@prisma/client';
 
 class OfferController {
   // POST /api/v1/offers

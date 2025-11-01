@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { userController } from './users.controller.js';
 import { authMiddleware, roleMiddleware } from '../../core/middleware/auth.middleware.js';
-import { userRole } from '../../../generated/prisma/client.js';
+import { userRole } from '@prisma/client';
 
 /**
  * Defines the routes for the User module.

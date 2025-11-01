@@ -17,13 +17,18 @@ class BusinessService {
    * Finds the business profile associated with a given user ID.
    */
   public async findBusinessByUserId(userId: string): Promise<Business> {
+    logger.debug(`[Business] Looking up business profile for userId: ${userId}`);
+    
     const business = await db.business.findUnique({
       where: { userId },
     });
 
     if (!business) {
+      logger.warn(`[Business] Business profile not found for userId: ${userId}`);
       throw new HttpError('Business profile not found for this user', 404);
     }
+    
+    logger.info(`[Business] Business profile found for userId: ${userId}, businessId: ${business.businessId}`);
     return business;
   }
 
@@ -31,18 +36,24 @@ class BusinessService {
    * Updates an existing business profile.
    */
   public async updateBusiness(userId: string, dto: BusinessUpdateDto): Promise<Business> {
+    logger.info(`[Business] Updating business profile for userId: ${userId}`);
+    logger.debug(`[Business] Update data:`, dto);
+    
     try {
       const updatedBusiness = await db.business.update({
         where: { userId },
         data: dto,
       });
+      
+      logger.info(`[Business] Business profile updated successfully for userId: ${userId}, businessId: ${updatedBusiness.businessId}`);
       return updatedBusiness;
     } catch (error) {
       // Prisma error for unique constraint violation or record not found
       if ((error as any).code === 'P2025') {
+        logger.warn(`[Business] Business profile not found for update - userId: ${userId}`);
         throw new HttpError('Business profile not found', 404);
       }
-      logger.error('Error updating business profile:', error);
+      logger.error(`[Business] Error updating business profile for userId: ${userId}:`, error);
       throw new HttpError('Failed to update business profile', 500);
     }
   }
@@ -52,11 +63,15 @@ class BusinessService {
    * NOTE: This requires the manual PostGIS indices you defined in the schema.
    */
   public async findNearbyBusinesses(latitude: number, longitude: number, radiusMeters: number): Promise<Business[]> {
+    logger.info(`[Business] Finding nearby businesses - lat: ${latitude}, lng: ${longitude}, radius: ${radiusMeters}m`);
+    
     if (!process.env.DATABASE_URL?.includes('postgis')) {
-        logger.warn('PostGIS not detected/configured. Falling back to basic query.');
+        logger.warn('[Business] PostGIS not detected/configured. Falling back to basic query.');
         // Fallback or throw error if Geo-filtering is mandatory
         return [];
     }
+    
+    logger.debug(`[Business] Using PostGIS for geo-filtering query`);
     
     // Raw SQL for PostGIS distance calculation and filtering
     // ST_DWithin checks if two geometries are within a specified distance
@@ -76,6 +91,7 @@ class BusinessService {
       ORDER BY distanceMeters
     `;
     
+    logger.info(`[Business] Found ${nearbyBusinesses.length} businesses within ${radiusMeters}m radius`);
     return nearbyBusinesses;
   }
 }
