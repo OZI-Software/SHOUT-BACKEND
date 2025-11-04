@@ -1,5 +1,6 @@
 import type { Request } from 'express';
-import type { User, userRole } from '../../generated/prisma/client.js';
+import type { User } from '@prisma/client';
+import { userRole } from '@prisma/client';
 
 // Type for the JWT payload
 export interface JwtPayload {
