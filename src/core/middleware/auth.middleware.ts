@@ -4,7 +4,7 @@ import { db } from '../db/prisma.js';
 import { HttpError } from '../../config/index.js'
 import type {AuthRequest, JwtPayload} from '../../config/index.js'
 import { JWT_SECRET } from '../../config/index.d.js';
-import { userRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { logger } from '../utils/logger.js';
 
 // Middleware to verify JWT and attach user data
@@ -63,7 +63,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
 };
 
 // Middleware for role-based access control
-export const roleMiddleware = (requiredRole: userRole) => {
+export const roleMiddleware = (requiredRole: UserRole) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     const requestId = Math.random().toString(36).substring(7);
     logger.debug(`[Role:${requestId}] Authorization check for ${req.method} ${req.originalUrl} - Required role: ${requiredRole}`);
@@ -80,6 +80,27 @@ export const roleMiddleware = (requiredRole: userRole) => {
     }
     
     logger.info(`[Role:${requestId}] Authorization successful - User ${req.user.email} has required role: ${requiredRole}`);
+    next();
+  };
+};
+
+// Middleware for allowing multiple roles
+export const rolesMiddleware = (allowedRoles: UserRole[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    const requestId = Math.random().toString(36).substring(7);
+    logger.debug(`[Role:${requestId}] Authorization check for ${req.method} ${req.originalUrl} - Allowed roles: ${allowedRoles.join(', ')}`);
+
+    if (!req.user) {
+      logger.warn(`[Role:${requestId}] Authorization failed - No user attached to request`);
+      return next(new HttpError('Forbidden: Insufficient permissions', 403));
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      logger.warn(`[Role:${requestId}] Authorization failed - User ${req.user.email} has role ${req.user.role}, allowed: ${allowedRoles.join(', ')}`);
+      return next(new HttpError('Forbidden: Insufficient permissions', 403));
+    }
+
+    logger.info(`[Role:${requestId}] Authorization successful - User ${req.user.email} has allowed role: ${req.user.role}`);
     next();
   };
 };

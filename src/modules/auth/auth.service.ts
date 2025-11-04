@@ -1,5 +1,5 @@
 import { db } from '../../core/db/prisma.js';
-import { userRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';  
 import type {User} from '@prisma/client';
 import { HttpError} from '../../config/index.js';
 import type {JwtPayload } from '../../config/index.js';
@@ -55,7 +55,7 @@ class AuthService {
     // 2. Hash the password
     const hashedPassword = await bcrypt.hash(password, this.saltRounds);
 
-    const role = isBusiness ? userRole.ADMIN : userRole.STAFF; 
+    const role = isBusiness ? UserRole.ADMIN : UserRole.STAFF; 
 
     // 3. Perform registration in a database transaction
     try {

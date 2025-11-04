@@ -8,7 +8,7 @@ datasource db {
 }
 
 // Enum for user roles, based on the 'users' table design
-enum userRole {
+enum UserRole {
   ADMIN
   STAFF
 }
@@ -29,7 +29,7 @@ model User {
   email String @unique
 
   // Corresponds to role (enum)
-  role userRole @default(STAFF)
+  role UserRole @default(STAFF)
 
   // Corresponds to created_at
   createdAt DateTime @default(now())
@@ -64,8 +64,9 @@ model Business {
 
   pinCode Int
 
-  latitude  Float
-  longitude Float
+  googleMapLink String
+  latitude      Float
+  longitude     Float
 
   // Corresponds to created_at
   createdAt DateTime @default(now())
@@ -105,14 +106,6 @@ model Offer {
   // Corresponds to end_datetime
   endDateTime DateTime
 
-  // --- PostGIS Workaround ---
-  // Corresponds to target_location(point)
-  targetLatitude  Float
-  targetLongitude Float
-
-  // Corresponds to target_radius_m (int)
-  targetRadiusMeters Int
-
   // Corresponds to reposted_from (uuid)
   // This is a self-referencing relation to track reposts
   repostedFromOfferId String?
@@ -123,12 +116,7 @@ model Offer {
 
   // Corresponds to created_at
   createdAt DateTime @default(now())
-  // add a GIST index manually in SQL for PostGIS:
-  // CREATE INDEX "offer_target_location_idx" ON "Offer" USING GIST (
-  //   ST_MakePoint(targetLongitude, targetLatitude)::geography
-  // );
 
-  @@index([targetLatitude, targetLongitude, id])
   @@index([creatorId])
   @@index([repostedFromOfferId])
   @@index([status, startDateTime, endDateTime])

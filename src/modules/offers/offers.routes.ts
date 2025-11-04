@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { offerController } from './offers.controller.js';
-import { authMiddleware, roleMiddleware } from '../../core/middleware/auth.middleware.js';
-import { userRole } from '@prisma/client';
+import { authMiddleware, roleMiddleware, rolesMiddleware } from '../../core/middleware/auth.middleware.js';
+import { UserRole } from '@prisma/client';
 
 class OffersRoutes {
   public router: Router = Router();
@@ -13,12 +13,21 @@ class OffersRoutes {
   private initializeRoutes() {
     // Public route for users to see active offers near them
     this.router.get('/nearby', offerController.getNearbyOffers);
+    
+    // Authenticated route: Get offers created by current user
+    // Place BEFORE the dynamic ":id" route to avoid shadowing
+    this.router.get(
+      '/mine',
+      authMiddleware,
+      rolesMiddleware([UserRole.ADMIN, UserRole.STAFF]),
+      offerController.getMyOffers
+    );
+
+    // Public route to fetch a specific offer by id (must come AFTER '/mine')
     this.router.get('/:id', offerController.getOfferById);
 
-    // Routes requiring authentication (ADMIN/Business Owner)
-    this.router.use(authMiddleware, roleMiddleware(userRole.ADMIN));
-    
     // Create new offer
+    this.router.use(authMiddleware, rolesMiddleware([UserRole.ADMIN, UserRole.STAFF]));
     this.router.post('/', offerController.createOffer);
 
     // Update existing offer (NEW ROUTE)
@@ -26,6 +35,9 @@ class OffersRoutes {
     
     // Repost an existing offer
     this.router.post('/:id/repost', offerController.repostOffer);
+
+    // Delete an offer created by current user
+    this.router.delete('/:id', offerController.deleteOffer);
 
     // TODO: Add PUT/DELETE routes with creatorId check for authorization
   }

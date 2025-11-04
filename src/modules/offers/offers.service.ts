@@ -11,9 +11,6 @@ interface CreateOfferDto {
   imageUrl: string;
   startDateTime: Date;
   endDateTime: Date;
-  targetLatitude: number;
-  targetLongitude: number;
-  targetRadiusMeters: number;
   status?: OfferStatus;
 }
 
@@ -24,9 +21,6 @@ interface UpdateOfferDto {
   status?: OfferStatus;
   startDateTime?: Date;
   endDateTime?: Date;
-  targetLatitude?: number;
-  targetLongitude?: number;
-  targetRadiusMeters?: number;
 }
 
 class OfferService {
@@ -42,7 +36,7 @@ class OfferService {
         data: {
           ...dto,
           creatorId,
-          status: dto.status || OfferStatus.DRAFT,
+          status: dto.status || OfferStatus.DRAFT
         },
       });
       
@@ -90,9 +84,6 @@ class OfferService {
         imageUrl: originalOffer.imageUrl,
         startDateTime: new Date(), // Set new start/end times
         endDateTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // e.g., 7 days from now
-        targetLatitude: originalOffer.targetLatitude,
-        targetLongitude: originalOffer.targetLongitude,
-        targetRadiusMeters: originalOffer.targetRadiusMeters,
         status: OfferStatus.DRAFT,
     };
     
@@ -145,31 +136,33 @@ class OfferService {
 
     const R = 6371000; // Earth radius in meters
 
-const nearbyOffers = await db.$queryRaw<Offer[]>`
-  SELECT 
-    *,
-    (
-      ${R} * acos(
-        least(1, cos(radians(${latitude}))
-        * cos(radians("targetLatitude"))
-        * cos(radians("targetLongitude") - radians(${longitude})) 
-        + sin(radians(${latitude})) 
-        * sin(radians("targetLatitude")))
-      )
-    ) AS distanceMeters
-  FROM "offers"
-  WHERE "status" = 'ACTIVE'
-  AND (
-    ${R} * acos(
-      least(1, cos(radians(${latitude}))
-      * cos(radians("targetLatitude"))
-      * cos(radians("targetLongitude") - radians(${longitude})) 
-      + sin(radians(${latitude})) 
-      * sin(radians("targetLatitude")))
-    )
-  ) <= ${radiusMeters}
-  ORDER BY distanceMeters
-`;
+    // Join offers with businesses (creatorId -> Business.userId) and filter using business coordinates
+    const nearbyOffers = await db.$queryRaw<Offer[]>`
+      SELECT 
+        o.*,
+        (
+          ${R} * acos(
+            least(1, cos(radians(${latitude}))
+            * cos(radians(b."latitude"))
+            * cos(radians(b."longitude") - radians(${longitude})) 
+            + sin(radians(${latitude})) 
+            * sin(radians(b."latitude")))
+          )
+        ) AS "distanceInMeters"
+      FROM "offers" o
+      INNER JOIN "businesses" b ON b."userId" = o."creatorId"
+      WHERE o."status" = 'ACTIVE'
+      AND (
+        ${R} * acos(
+          least(1, cos(radians(${latitude}))
+          * cos(radians(b."latitude"))
+          * cos(radians(b."longitude") - radians(${longitude})) 
+          + sin(radians(${latitude})) 
+          * sin(radians(b."latitude")))
+        )
+      ) <= ${radiusMeters}
+      ORDER BY o."startDateTime" DESC
+    `;
 
     logger.info(`[Offers] Found ${nearbyOffers.length} active offers within ${radiusMeters}m radius`);
     return nearbyOffers;
@@ -211,7 +204,42 @@ const nearbyOffers = await db.$queryRaw<Offer[]>`
       logger.error('Error updating offer:', error);
       throw new HttpError('Failed to update offer', 500);
     }
-}
+  }
+
+  /**
+   * Returns all offers created by the given user (creatorId).
+   */
+  public async findOffersByCreatorId(creatorId: string): Promise<Offer[]> {
+    logger.info(`[Offers] Fetching offers for creatorId: ${creatorId}`);
+    try {
+      const offers = await db.offer.findMany({
+        where: { creatorId },
+        orderBy: { createdAt: 'desc' },
+      });
+      logger.info(`[Offers] Found ${offers.length} offers for creatorId: ${creatorId}`);
+      return offers;
+    } catch (error) {
+      logger.error('[Offers] Error fetching my offers:', error);
+      throw new HttpError('Failed to fetch offers', 500);
+    }
+  }
+
+  /**
+   * Deletes an offer ensuring the caller is the creator.
+   */
+  public async deleteOffer(offerId: string, creatorId: string): Promise<void> {
+    const offer = await db.offer.findUnique({
+      where: { id: offerId },
+      select: { id: true, creatorId: true },
+    });
+    if (!offer) {
+      throw new HttpError('Offer not found', 404);
+    }
+    if (offer.creatorId !== creatorId) {
+      throw new HttpError('Forbidden: You can only delete your own offers', 403);
+    }
+    await db.offer.delete({ where: { id: offerId } });
+  }
 }
 
 export const offerService = new OfferService();

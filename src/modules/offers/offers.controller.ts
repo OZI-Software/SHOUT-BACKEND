@@ -12,18 +12,31 @@ class OfferController {
       
       // Validation check for mandatory fields (simplified)
       const { title, description, startDateTime, endDateTime, imageUrl, targetLatitude, targetLongitude, targetRadiusMeters } = req.body;
-      if (!title || !description || !startDateTime || !endDateTime || !imageUrl || !targetLatitude || !targetLongitude || !targetRadiusMeters) {
+      if (!title || !description || !startDateTime || !endDateTime || !imageUrl || !targetLatitude || !targetLongitude) {
           throw new HttpError('Missing required fields', 400);
       }
 
-      const offer = await offerService.createOffer(req.user.userId, {
-        ...req.body,
+      const dto: any = {
+        title,
+        description,
+        imageUrl,
         startDateTime: new Date(startDateTime),
         endDateTime: new Date(endDateTime),
-        targetRadiusMeters: parseFloat(targetRadiusMeters),
         targetLatitude: parseFloat(targetLatitude),
         targetLongitude: parseFloat(targetLongitude),
-      });
+      };
+      // Optional: targetRadiusMeters (default handled in service if absent)
+      if (typeof targetRadiusMeters !== 'undefined' && targetRadiusMeters !== null && targetRadiusMeters !== '') {
+        const parsed = parseInt(targetRadiusMeters, 10);
+        if (!isNaN(parsed)) dto.targetRadiusMeters = parsed;
+      }
+
+      // Optional status passthrough if provided and valid
+      if (req.body.status && Object.values(OfferStatus).includes(req.body.status)) {
+        dto.status = req.body.status;
+      }
+
+      const offer = await offerService.createOffer(req.user.userId, dto);
 
       res.status(201).json({ status: 'success', data: offer });
     } catch (error) {
@@ -72,6 +85,33 @@ class OfferController {
       const offers = await offerService.findNearbyActiveOffers(latitude, longitude, radiusMeters);
 
       res.status(200).json({ status: 'success', count: offers.length, data: offers });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // GET /api/v1/offers/mine
+  public getMyOffers = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+      const creatorId = req.user.userId;
+      const offers = await offerService.findOffersByCreatorId(creatorId);
+      res.status(200).json({ status: 'success', count: offers.length, data: offers });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /api/v1/offers/:id
+   * Deletes an offer created by the authenticated user.
+   */
+  public deleteOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+      const { id } = req.params;
+      await offerService.deleteOffer(id as string, req.user.userId);
+      res.status(200).json({ status: 'success' });
     } catch (error) {
       next(error);
     }
