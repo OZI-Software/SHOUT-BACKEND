@@ -8,7 +8,7 @@ import { logger } from '../../core/utils/logger.js';
  */
 class UserService {
   // Example: Find a user by ID
-  public async findUserById(userId: string): Promise<User> {
+  public async findUserById(userId: string): Promise<PublicUser> {
     const user = await db.user.findUnique({
       where: { userId },
       select: { userId: true, email: true, role: true, createdAt: true },
@@ -24,3 +24,6 @@ class UserService {
 }
 
 export const userService = new UserService();
+
+// Safe, public-facing user shape (no password hash or sensitive fields)
+export type PublicUser = Pick<User, 'userId' | 'email' | 'role' | 'createdAt'>;

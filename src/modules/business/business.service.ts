@@ -10,6 +10,7 @@ interface BusinessUpdateDto {
   pinCode?: number;
   latitude?: number;
   longitude?: number;
+  googleMapLink?: string;
 }
 
 class BusinessService {
@@ -56,6 +57,20 @@ class BusinessService {
       logger.error(`[Business] Error updating business profile for userId: ${userId}:`, error);
       throw new HttpError('Failed to update business profile', 500);
     }
+  }
+
+  /**
+   * Find business profile by businessId.
+   */
+  public async findBusinessByBusinessId(businessId: string): Promise<Business> {
+    logger.info(`[Business] Fetching business by businessId: ${businessId}`)
+    const biz = await db.business.findUnique({
+      where: { businessId },
+    })
+    if (!biz) {
+      throw new HttpError('Business not found', 404)
+    }
+    return biz
   }
 
   /**

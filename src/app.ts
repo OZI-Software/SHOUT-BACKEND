@@ -10,6 +10,9 @@ import { authRoutes } from './modules/auth/auth.routes.js';
 import { userRoutes } from './modules/users/users.routes.js';
 import { businessRoutes } from './modules/business/business.routes.js';
 import { offersRoutes } from './modules/offers/offers.routes.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { uploadsRoutes } from './modules/uploads/uploads.routes.js';
 
 
 export class App {
@@ -42,6 +45,11 @@ export class App {
     logger.debug('[App] Configuring body parsing middleware');
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
+    // Static file serving for uploaded images
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    this.app.use('/uploads', express.static(uploadsDir));
     
     logger.debug('[App] Middleware setup completed');
   }
@@ -68,6 +76,8 @@ export class App {
     
     logger.debug('[App] Configuring offers routes: /api/v1/offers');
     this.app.use('/api/v1/offers', offersRoutes.router);
+    // Upload routes for admin/staff to upload images
+    this.app.use('/api/v1/uploads', uploadsRoutes.router);
     
     logger.debug('[App] Routes setup completed');
   }

@@ -10,9 +10,9 @@ class OfferController {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
       
-      // Validation check for mandatory fields (simplified)
-      const { title, description, startDateTime, endDateTime, imageUrl, targetLatitude, targetLongitude, targetRadiusMeters } = req.body;
-      if (!title || !description || !startDateTime || !endDateTime || !imageUrl || !targetLatitude || !targetLongitude) {
+      // Validation check for mandatory fields
+      const { title, description, startDateTime, endDateTime, imageUrl } = req.body;
+      if (!title || !description || !startDateTime || !endDateTime || !imageUrl) {
           throw new HttpError('Missing required fields', 400);
       }
 
@@ -22,14 +22,7 @@ class OfferController {
         imageUrl,
         startDateTime: new Date(startDateTime),
         endDateTime: new Date(endDateTime),
-        targetLatitude: parseFloat(targetLatitude),
-        targetLongitude: parseFloat(targetLongitude),
       };
-      // Optional: targetRadiusMeters (default handled in service if absent)
-      if (typeof targetRadiusMeters !== 'undefined' && targetRadiusMeters !== null && targetRadiusMeters !== '') {
-        const parsed = parseInt(targetRadiusMeters, 10);
-        if (!isNaN(parsed)) dto.targetRadiusMeters = parsed;
-      }
 
       // Optional status passthrough if provided and valid
       if (req.body.status && Object.values(OfferStatus).includes(req.body.status)) {
@@ -48,7 +41,7 @@ class OfferController {
   public getOfferById = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const offer = await offerService.findOfferById(id as string);
+      const offer = await offerService.findOfferWithBusinessById(id as string);
       res.status(200).json({ status: 'success', data: offer });
     } catch (error) {
       next(error);
@@ -133,9 +126,6 @@ class OfferController {
       // Sanitization and type conversion
       if (req.body.startDateTime) updateData.startDateTime = new Date(req.body.startDateTime);
       if (req.body.endDateTime) updateData.endDateTime = new Date(req.body.endDateTime);
-      if (req.body.targetLatitude) updateData.targetLatitude = parseFloat(req.body.targetLatitude);
-      if (req.body.targetLongitude) updateData.targetLongitude = parseFloat(req.body.targetLongitude);
-      if (req.body.targetRadiusMeters) updateData.targetRadiusMeters = parseInt(req.body.targetRadiusMeters, 10);
       if (req.body.title) updateData.title = req.body.title;
       if (req.body.description) updateData.description = req.body.description;
       if (req.body.imageUrl) updateData.imageUrl = req.body.imageUrl;

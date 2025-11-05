@@ -1,5 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import { businessService } from './business.service.js';
+import { offerService } from '../offers/offers.service.js';
 import { HttpError} from '../../config/index.js';
 import type {AuthRequest } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';
@@ -56,6 +57,32 @@ class BusinessController {
       next(error);
     }
   };
+
+  // GET /api/v1/business/:id
+  public getBusinessById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params
+      const business = await businessService.findBusinessByBusinessId(id as string)
+      res.status(200).json({ status: 'success', data: business })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  // GET /api/v1/business/:id/offers
+  public getBusinessOffers = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params
+      const business = await businessService.findBusinessByBusinessId(id as string)
+      if (!business || !business.userId) {
+        throw new HttpError('Business profile not found', 404)
+      }
+      const offers = await offerService.findOffersByCreatorId(business.userId)
+      res.status(200).json({ status: 'success', count: offers.length, data: offers })
+    } catch (error) {
+      next(error)
+    }
+  }
 }
 
 export const businessController = new BusinessController();

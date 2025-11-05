@@ -105,7 +105,7 @@ class OfferService {
   /**
    * Finds active offers within a certain radius of a given point (Geo-filtering for users).
    */
-  public async findNearbyActiveOffers(latitude: number, longitude: number, radiusMeters: number): Promise<Offer[]> {
+  public async findNearbyActiveOffers(latitude: number, longitude: number, radiusMeters: number): Promise<any[]> {
     logger.info(`[Offers] Finding nearby active offers - lat: ${latitude}, lng: ${longitude}, radius: ${radiusMeters}m`);
     
     // if (!process.env.DATABASE_URL?.includes('postgis')) {
@@ -137,9 +137,11 @@ class OfferService {
     const R = 6371000; // Earth radius in meters
 
     // Join offers with businesses (creatorId -> Business.userId) and filter using business coordinates
-    const nearbyOffers = await db.$queryRaw<Offer[]>`
+    const nearbyOffers = await db.$queryRaw<any[]>`
       SELECT 
         o.*,
+        b."businessId" AS "businessId",
+        b."businessName" AS "businessName",
         (
           ${R} * acos(
             least(1, cos(radians(${latitude}))
@@ -166,6 +168,30 @@ class OfferService {
 
     logger.info(`[Offers] Found ${nearbyOffers.length} active offers within ${radiusMeters}m radius`);
     return nearbyOffers;
+  }
+
+  /**
+   * Finds a single offer by its ID and enriches with business info.
+   */
+  public async findOfferWithBusinessById(id: string): Promise<any> {
+    const offer = await db.offer.findUnique({
+      where: { id },
+    });
+
+    if (!offer) {
+      throw new HttpError('Offer not found', 404);
+    }
+
+    const business = await db.business.findUnique({
+      where: { userId: offer.creatorId },
+      select: { businessId: true, businessName: true },
+    });
+
+    return {
+      ...offer,
+      businessId: business?.businessId,
+      businessName: business?.businessName,
+    };
   }
 
   /**

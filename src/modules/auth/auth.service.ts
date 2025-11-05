@@ -21,6 +21,7 @@ interface RegisterDto {
   pinCode?: number;
   latitude?: number;
   longitude?: number;
+  googleMapsLink?: string;
 }
 
 interface LoginDto {
@@ -66,27 +67,34 @@ class AuthService {
           data: {
             email,
             role,
-            // Assume `passwordHash` is added to the User model
-            // passwordHash: hashedPassword, 
+            passwordHash: hashedPassword,
           },
         });
 
         // --- Step 3b: Create Business if requested ---
         logger.info('[AuthService] Creating business profile for user:', user.userId);
         if (isBusiness) {
-          if (!businessData.businessName || !businessData.address || !businessData.latitude || !businessData.longitude || !businessData.description || !businessData.pinCode) {
-            // Throw a 400 error if key business fields are missing
-            throw new HttpError('Missing required business fields (name, address, location) for business registration', 400);
+          const missing: string[] = [];
+          if (!businessData.businessName) missing.push('businessName');
+          if (!businessData.description) missing.push('description');
+          if (!businessData.address) missing.push('address');
+          if (!businessData.pinCode) missing.push('pinCode');
+          if (!businessData.latitude) missing.push('latitude');
+          if (!businessData.longitude) missing.push('longitude');
+          if (!businessData.googleMapsLink) missing.push('googleMapsLink');
+          if (missing.length > 0) {
+            throw new HttpError(`Missing required business fields: ${missing.join(', ')}`, 400);
           }
           logger.info('[AuthService] Business profile created successfully for user:', user.userId);
           await tx.business.create({
             data: {
-              businessName: businessData.businessName,
-              description: businessData.description,
-              address: businessData.address,
+              businessName: businessData.businessName!,
+              description: businessData.description!,
+              address: businessData.address!,
               pinCode: Number(businessData.pinCode),
               latitude: Number(businessData.latitude), 
               longitude: Number(businessData.longitude),
+              googleMapsLink: String(businessData.googleMapsLink),
               userId: user.userId,
             },
           });
@@ -117,17 +125,15 @@ class AuthService {
     // 1. Find user by email (include password hash in a real setup)
     const user = await db.user.findUnique({
       where: { email: dto.email },
-      // NOTE: Must select the hashed password field here in a real app.
-      // select: { userId: true, email: true, role: true, passwordHash: true } 
+      select: { userId: true, email: true, role: true, passwordHash: true },
     });
 
     if (!user) {
       throw new HttpError('Invalid credentials', 401);
     }
 
-    // 2. Compare password 
-    // const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
-    const isMatch = true; // ⚠️ Placeholder for actual password check ⚠️
+    // 2. Compare password securely using bcrypt
+    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isMatch) {
       throw new HttpError('Invalid credentials', 401);

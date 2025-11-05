@@ -28,6 +28,9 @@ model User {
   // Corresponds to email (string)
   email String @unique
 
+  // Securely stored bcrypt password hash
+  passwordHash String
+
   // Corresponds to role (enum)
   role UserRole @default(STAFF)
 
@@ -64,7 +67,7 @@ model Business {
 
   pinCode Int
 
-  googleMapLink String
+  googleMapsLink String
   latitude      Float
   longitude     Float
 

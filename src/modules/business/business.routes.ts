@@ -17,6 +17,11 @@ class BusinessRoutes {
     // Get and Update current user's business profile (requires ADMIN role)
     this.router.get('/me', authMiddleware, roleMiddleware(UserRole.ADMIN), businessController.getMyBusinessProfile);
     this.router.put('/me', authMiddleware, roleMiddleware(UserRole.ADMIN), businessController.updateMyBusinessProfile);
+
+    // Offers of a given businessId
+    this.router.get('/:id/offers', businessController.getBusinessOffers);
+    // Public route to get business by businessId
+    this.router.get('/:id', businessController.getBusinessById);
   }
 }
 
