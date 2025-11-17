@@ -13,6 +13,7 @@ import { offersRoutes } from './modules/offers/offers.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { uploadsRoutes } from './modules/uploads/uploads.routes.js';
+import adminRoutes from './modules/admin/business-approvals.routes.js';
 
 
 export class App {
@@ -74,6 +75,8 @@ export class App {
     this.app.use('/api/v1/offers', offersRoutes.router);
     // Upload routes for admin/staff to upload images
     this.app.use('/api/v1/uploads', uploadsRoutes.router);
+    // Admin routes for business approvals
+    this.app.use('/api/v1/admin', adminRoutes);
     
     logger.debug('[App] Routes setup completed');
   }

@@ -95,6 +95,8 @@ class AuthService {
               latitude: Number(businessData.latitude), 
               longitude: Number(businessData.longitude),
               googleMapsLink: String(businessData.googleMapsLink),
+              // New approval workflow fields
+              status: 'PENDING',
               userId: user.userId,
             },
           });

@@ -2,14 +2,21 @@ import type { Response, NextFunction } from 'express';
 import { offerService } from './offers.service.js';
 import { HttpError } from '../../config/index.js';
 import type {AuthRequest} from '../../config/index.js';
-import { OfferStatus } from '@prisma/client';
+import { OfferStatus, Prisma } from '@prisma/client';
 import { uploadBufferToCloudinary } from '../../core/cloudinary.js';
+import { db } from '../../core/db/prisma.js';
 
 class OfferController {
   // POST /api/v1/offers
   public createOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
+      // Enforce business approval before allowing content creation
+      const business = await db.business.findFirst({ where: { userId: req.user.userId } });
+      if (!business) throw new HttpError('Business profile not found', 404);
+      if (business.status !== ('APPROVED' as Prisma.BusinessStatus)) {
+        throw new HttpError('Business is not approved to post content', 403);
+      }
       
       // Validation check for mandatory fields
       const { title, description, startDateTime, endDateTime } = req.body;
@@ -63,6 +70,11 @@ class OfferController {
   public repostOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         if (!req.user) throw new HttpError('Not authenticated', 401);
+        const business = await db.business.findFirst({ where: { userId: req.user.userId } });
+        if (!business) throw new HttpError('Business profile not found', 404);
+        if (business.status !== ('APPROVED' as Prisma.BusinessStatus)) {
+          throw new HttpError('Business is not approved to repost content', 403);
+        }
         const { id } = req.params;
 
         const newOffer = await offerService.repostOffer(id as string, req.user.userId);
@@ -113,6 +125,11 @@ class OfferController {
   public deleteOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
+      const business = await db.business.findFirst({ where: { userId: req.user.userId } });
+      if (!business) throw new HttpError('Business profile not found', 404);
+      if (business.status !== ('APPROVED' as Prisma.BusinessStatus)) {
+        throw new HttpError('Business is not approved to delete content', 403);
+      }
       const { id } = req.params;
       await offerService.deleteOffer(id as string, req.user.userId);
       res.status(200).json({ status: 'success' });
@@ -128,6 +145,11 @@ class OfferController {
   public updateOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
+      const business = await db.business.findFirst({ where: { userId: req.user.userId } });
+      if (!business) throw new HttpError('Business profile not found', 404);
+      if (business.status !== ('APPROVED' as Prisma.BusinessStatus)) {
+        throw new HttpError('Business is not approved to update content', 403);
+      }
       const { id } = req.params;
       const creatorId = req.user.userId;
 

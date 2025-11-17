@@ -21,6 +21,13 @@ enum OfferStatus {
   EXPIRED
 }
 
+// Enum for business approval workflow
+enum BusinessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   // Corresponds to PK id (uuid)
   userId String @id @default(uuid())
@@ -68,11 +75,17 @@ model Business {
   pinCode Int
 
   googleMapsLink String
-  latitude      Float
-  longitude     Float
+  latitude       Float
+  longitude      Float
 
   // Corresponds to created_at
   createdAt DateTime @default(now())
+
+  // Approval workflow fields
+  status     BusinessStatus @default(PENDING)
+  approvedAt DateTime?
+  approvedBy String?
+  reviewNote String?
 
   // add a GIST index manually in SQL for PostGIS:
   // CREATE INDEX "business_location_idx" ON "Business" USING GIST (
@@ -80,6 +93,7 @@ model Business {
   // );
 
   @@index([latitude, longitude, businessId])
+  @@index([status])
   @@map("businesses")
 }
 
