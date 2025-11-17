@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { offerController } from './offers.controller.js';
 import { authMiddleware, roleMiddleware, rolesMiddleware } from '../../core/middleware/auth.middleware.js';
 import { UserRole } from '@prisma/client';
+import { imageUpload } from '../../core/upload.js';
 
 class OffersRoutes {
   public router: Router = Router();
@@ -28,10 +29,12 @@ class OffersRoutes {
 
     // Create new offer
     this.router.use(authMiddleware, rolesMiddleware([UserRole.ADMIN, UserRole.STAFF]));
-    this.router.post('/', offerController.createOffer);
+    // Accept either an uploaded image file or a direct imageUrl
+    this.router.post('/', imageUpload.single('file'), offerController.createOffer);
 
     // Update existing offer (NEW ROUTE)
-    this.router.put('/:id', offerController.updateOffer); // Using PUT for full replacement/update
+    // Allow optional image replacement via file upload
+    this.router.put('/:id', imageUpload.single('file'), offerController.updateOffer); // Using PUT for full replacement/update
     
     // Repost an existing offer
     this.router.post('/:id/repost', offerController.repostOffer);

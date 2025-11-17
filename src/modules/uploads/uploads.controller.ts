@@ -1,27 +1,11 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../config/index.js';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import { HttpError } from '../../config/index.js';
+import { uploadBufferToCloudinary } from '../../core/cloudinary.js';
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), 'backend', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
-    cb(null, `${base}_${timestamp}${ext}`);
-  },
-});
+// Use in-memory storage; no local filesystem writes
+const storage = multer.memoryStorage();
 
 const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -29,24 +13,28 @@ const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   else cb(new Error('Unsupported file type'));
 };
 
-export const upload = multer({ storage, fileFilter, limits: { fileSize: 2 * 1024 * 1024 } }); // 2MB
+export const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
 
 class UploadsController {
   public uploadImage = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
-      // Role check can be enforced via route middleware
       const file = (req as any).file as Express.Multer.File | undefined;
-      if (!file) {
+      if (!file || !file.buffer) {
         throw new HttpError('No file uploaded', 400);
       }
 
-      // Build public URL: /uploads/<filename> served by express static
-      const filename = path.basename(file.path);
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const url = `${baseUrl}/uploads/${filename}`;
+      // Upload to Cloudinary
+      const result = await uploadBufferToCloudinary(file.buffer, 'shout/uploads', file.originalname);
 
-      return res.status(201).json({ status: 'success', data: { url } });
+      return res.status(201).json({
+        status: 'success',
+        data: {
+          url: result.secure_url || result.url,
+          public_id: result.public_id,
+          resource_type: result.resource_type,
+        },
+      });
     } catch (error) {
       next(error);
     }

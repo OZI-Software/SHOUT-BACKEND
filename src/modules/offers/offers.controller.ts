@@ -3,6 +3,7 @@ import { offerService } from './offers.service.js';
 import { HttpError } from '../../config/index.js';
 import type {AuthRequest} from '../../config/index.js';
 import { OfferStatus } from '@prisma/client';
+import { uploadBufferToCloudinary } from '../../core/cloudinary.js';
 
 class OfferController {
   // POST /api/v1/offers
@@ -11,18 +12,28 @@ class OfferController {
       if (!req.user) throw new HttpError('Not authenticated', 401);
       
       // Validation check for mandatory fields
-      const { title, description, startDateTime, endDateTime, imageUrl } = req.body;
-      if (!title || !description || !startDateTime || !endDateTime || !imageUrl) {
+      const { title, description, startDateTime, endDateTime } = req.body;
+      if (!title || !description || !startDateTime || !endDateTime) {
           throw new HttpError('Missing required fields', 400);
       }
 
       const dto: any = {
         title,
         description,
-        imageUrl,
         startDateTime: new Date(startDateTime),
         endDateTime: new Date(endDateTime),
       };
+
+      // Image handling: either uploaded file or direct link
+      const file = (req as any).file as Express.Multer.File | undefined;
+      if (file && file.buffer) {
+        const result = await uploadBufferToCloudinary(file.buffer, 'shout/offers', file.originalname);
+        dto.imageUrl = result.secure_url || result.url;
+      } else if (req.body.imageUrl) {
+        dto.imageUrl = req.body.imageUrl;
+      } else {
+        throw new HttpError('Either an image file or imageUrl must be provided', 400);
+      }
 
       // Optional status passthrough if provided and valid
       if (req.body.status && Object.values(OfferStatus).includes(req.body.status)) {
@@ -128,6 +139,13 @@ class OfferController {
       if (req.body.endDateTime) updateData.endDateTime = new Date(req.body.endDateTime);
       if (req.body.title) updateData.title = req.body.title;
       if (req.body.description) updateData.description = req.body.description;
+      // If a new image file is provided, upload and replace imageUrl
+      const file = (req as any).file as Express.Multer.File | undefined;
+      if (file && file.buffer) {
+        const result = await uploadBufferToCloudinary(file.buffer, 'shout/offers', file.originalname);
+        updateData.imageUrl = result.secure_url || result.url;
+      }
+      // Or accept direct link update
       if (req.body.imageUrl) updateData.imageUrl = req.body.imageUrl;
       // Ensure status is a valid enum value if provided
       if (req.body.status && Object.values(OfferStatus).includes(req.body.status)) {

@@ -45,11 +45,7 @@ export class App {
     logger.debug('[App] Configuring body parsing middleware');
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
-    // Static file serving for uploaded images
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const uploadsDir = path.join(__dirname, '..', 'uploads');
-    this.app.use('/uploads', express.static(uploadsDir));
+    // Cloudinary is used for asset storage; local static serving is no longer needed
     
     logger.debug('[App] Middleware setup completed');
   }
