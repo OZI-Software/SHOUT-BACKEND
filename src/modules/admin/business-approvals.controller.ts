@@ -3,7 +3,7 @@ import type { AuthRequest } from '../../config/index.js';
 import { HttpError } from '../../config/index.js';
 import { db } from '../../core/db/prisma.js';
 import { logger } from '../../core/utils/logger.js';
-import { Prisma } from '@prisma/client';
+import { BusinessStatus } from '@prisma/client';
 
 class BusinessApprovalsController {
   // GET /api/v1/admin/businesses?status=PENDING
@@ -15,7 +15,7 @@ class BusinessApprovalsController {
         throw new HttpError('Invalid status filter', 400);
       }
       const businesses = await db.business.findMany({
-        where: { status: statusParam as Prisma.BusinessStatus },
+        where: { status: statusParam as BusinessStatus },
         orderBy: { createdAt: 'desc' },
       });
       res.status(200).json({ status: 'success', count: businesses.length, data: businesses });
@@ -45,10 +45,10 @@ class BusinessApprovalsController {
       const updated = await db.business.update({
         where: { businessId: id as string },
         data: {
-          status: 'APPROVED' as Prisma.BusinessStatus,
+          status: 'APPROVED' as BusinessStatus,
           approvedAt: new Date(),
           approvedBy: req.user.userId,
-          reviewNote,
+          ...(reviewNote !== undefined ? { reviewNote } : {}),
         },
       });
       logger.info(`[Admin] Approved business ${id} by ${req.user.userId}`);
@@ -67,10 +67,10 @@ class BusinessApprovalsController {
       const updated = await db.business.update({
         where: { businessId: id as string },
         data: {
-          status: 'REJECTED' as Prisma.BusinessStatus,
+          status: 'REJECTED' as BusinessStatus,
           approvedAt: null,
           approvedBy: req.user.userId,
-          reviewNote,
+          ...(reviewNote !== undefined ? { reviewNote } : {}),
         },
       });
       logger.info(`[Admin] Rejected business ${id} by ${req.user.userId}`);

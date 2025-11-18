@@ -10,8 +10,6 @@ import { authRoutes } from './modules/auth/auth.routes.js';
 import { userRoutes } from './modules/users/users.routes.js';
 import { businessRoutes } from './modules/business/business.routes.js';
 import { offersRoutes } from './modules/offers/offers.routes.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { uploadsRoutes } from './modules/uploads/uploads.routes.js';
 import adminRoutes from './modules/admin/business-approvals.routes.js';
 
