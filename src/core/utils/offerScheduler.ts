@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import {db} from '../db/prisma.js'
-import { OfferStatus } from '@prisma/client';
+import type { OfferStatus } from '@prisma/client';
 import { logger } from './logger.js';
 
 // --- Offer Status Update Functions ---
@@ -11,11 +11,11 @@ const activateOffers = async () => {
   try {
     const { count } = await db.offer.updateMany({
       where: {
-        status: OfferStatus.SCHEDULED,
+        status: 'SCHEDULED',
         startDateTime: { lte: now }, // less than or equal to now
       },
       data: {
-        status: OfferStatus.ACTIVE,
+        status: 'ACTIVE',
       },
     });
     if (count > 0) {
@@ -32,11 +32,11 @@ const expireOffers = async () => {
   try {
     const { count } = await db.offer.updateMany({
       where: {
-        status: OfferStatus.ACTIVE,
+        status: 'ACTIVE',
         endDateTime: { lte: now }, // less than or equal to now
       },
       data: {
-        status: OfferStatus.EXPIRED,
+        status: 'EXPIRED',
       },
     });
     if (count > 0) {

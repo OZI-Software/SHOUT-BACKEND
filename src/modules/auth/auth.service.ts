@@ -1,12 +1,12 @@
 import { db } from '../../core/db/prisma.js';
-import { UserRole } from '@prisma/client';  
-import type {User} from '@prisma/client';
+import type { User } from '@prisma/client';
 import { HttpError} from '../../config/index.js';
 import type {JwtPayload } from '../../config/index.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../../config/index.d.js';
+import { JWT_SECRET, FRONTEND_BASE_URL } from '../../config/index.d.js';
 import { logger } from '../../core/utils/logger.js';
+import { emailService } from '../../core/email/email.service.js';
 
 // Define DTOs (Data Transfer Objects) for better type safety
 interface RegisterDto {
@@ -56,7 +56,7 @@ class AuthService {
     // 2. Hash the password
     const hashedPassword = await bcrypt.hash(password, this.saltRounds);
 
-    const role = isBusiness ? UserRole.ADMIN : UserRole.STAFF; 
+    const role = isBusiness ? 'ADMIN' : 'STAFF'; 
 
     // 3. Perform registration in a database transaction
     try {
@@ -155,6 +155,41 @@ class AuthService {
       role: user.role,
     };
     return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  }
+
+  /**
+   * Initiates a password reset by emailing a signed reset token.
+   */
+  public async requestPasswordReset(email: string): Promise<void> {
+    const user = await db.user.findUnique({ where: { email }, select: { userId: true, email: true } });
+    if (!user) {
+      // Do not reveal user existence
+      return;
+    }
+    const token = jwt.sign({ type: 'reset', userId: user.userId, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    const resetUrl = `${FRONTEND_BASE_URL}/auth/reset?token=${encodeURIComponent(token)}`;
+    await emailService.sendPasswordReset(user.email, resetUrl);
+    logger.info('[Auth] Sent password reset email to', user.email);
+  }
+
+  /**
+   * Confirms password reset using the token and sets the new password.
+   */
+  public async confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      if (!decoded || decoded.type !== 'reset' || !decoded.userId) {
+        throw new HttpError('Invalid reset token', 400);
+      }
+      const user = await db.user.findUnique({ where: { userId: decoded.userId }, select: { userId: true } });
+      if (!user) throw new HttpError('Invalid reset token', 400);
+      const passwordHash = await bcrypt.hash(newPassword, this.saltRounds);
+      await db.user.update({ where: { userId: user.userId }, data: { passwordHash } });
+      logger.info('[Auth] Password reset successful for user', user.userId);
+    } catch (err) {
+      if (err instanceof HttpError) throw err;
+      throw new HttpError('Invalid or expired reset token', 400);
+    }
   }
 }
 

@@ -3,7 +3,9 @@ import type { AuthRequest } from '../../config/index.js';
 import { HttpError } from '../../config/index.js';
 import { db } from '../../core/db/prisma.js';
 import { logger } from '../../core/utils/logger.js';
-import { BusinessStatus } from '@prisma/client';
+import type { BusinessStatus } from '@prisma/client';
+import { emailService } from '../../core/email/email.service.js';
+import { FRONTEND_BASE_URL } from '../../config/index.d.js';
 
 class BusinessApprovalsController {
   // GET /api/v1/admin/businesses?status=PENDING
@@ -45,13 +47,24 @@ class BusinessApprovalsController {
       const updated = await db.business.update({
         where: { businessId: id as string },
         data: {
-          status: 'APPROVED' as BusinessStatus,
+          status: 'APPROVED' as unknown as BusinessStatus,
           approvedAt: new Date(),
           approvedBy: req.user.userId,
           ...(reviewNote !== undefined ? { reviewNote } : {}),
         },
+        include: { user: { select: { email: true } } },
       });
       logger.info(`[Admin] Approved business ${id} by ${req.user.userId}`);
+      // Notify owner via email
+      try {
+        const toEmail = updated.user?.email;
+        if (toEmail) {
+          const dashboardUrl = `${FRONTEND_BASE_URL}/dashboard`;
+          await emailService.sendBusinessApproved(toEmail, updated.businessName, dashboardUrl);
+        }
+      } catch (mailErr) {
+        logger.error('[Admin] Failed to send approval email', mailErr);
+      }
       res.status(200).json({ status: 'success', data: updated });
     } catch (error) {
       next(error);
@@ -67,13 +80,24 @@ class BusinessApprovalsController {
       const updated = await db.business.update({
         where: { businessId: id as string },
         data: {
-          status: 'REJECTED' as BusinessStatus,
+          status: 'REJECTED' as unknown as BusinessStatus,
           approvedAt: null,
           approvedBy: req.user.userId,
           ...(reviewNote !== undefined ? { reviewNote } : {}),
         },
+        include: { user: { select: { email: true } } },
       });
       logger.info(`[Admin] Rejected business ${id} by ${req.user.userId}`);
+      // Notify owner via email
+      try {
+        const toEmail = updated.user?.email;
+        if (toEmail) {
+          const helpUrl = `${FRONTEND_BASE_URL}/help/business-guidelines`;
+          await emailService.sendBusinessRejected(toEmail, updated.businessName, reviewNote, helpUrl);
+        }
+      } catch (mailErr) {
+        logger.error('[Admin] Failed to send rejection email', mailErr);
+      }
       res.status(200).json({ status: 'success', data: updated });
     } catch (error) {
       next(error);

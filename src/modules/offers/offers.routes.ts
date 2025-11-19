@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { offerController } from './offers.controller.js';
 import { authMiddleware, roleMiddleware, rolesMiddleware } from '../../core/middleware/auth.middleware.js';
-import { UserRole } from '@prisma/client';
+import type { UserRole } from '@prisma/client';
 import { imageUpload } from '../../core/upload.js';
 
 class OffersRoutes {
@@ -20,7 +20,7 @@ class OffersRoutes {
     this.router.get(
       '/mine',
       authMiddleware,
-      rolesMiddleware([UserRole.ADMIN, UserRole.STAFF]),
+      rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
       offerController.getMyOffers
     );
 
@@ -28,7 +28,7 @@ class OffersRoutes {
     this.router.get('/:id', offerController.getOfferById);
 
     // Create new offer
-    this.router.use(authMiddleware, rolesMiddleware([UserRole.ADMIN, UserRole.STAFF]));
+    this.router.use(authMiddleware, rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]));
     // Accept either an uploaded image file or a direct imageUrl
     this.router.post('/', imageUpload.single('file'), offerController.createOffer);
 

@@ -4,7 +4,7 @@ import { db } from '../db/prisma.js';
 import { HttpError } from '../../config/index.js'
 import type {AuthRequest, JwtPayload} from '../../config/index.js'
 import { JWT_SECRET } from '../../config/index.d.js';
-import { UserRole } from '@prisma/client';
+// Use string-based roles to avoid runtime enum issues
 import { logger } from '../utils/logger.js';
 
 // Middleware to verify JWT and attach user data
@@ -47,7 +47,13 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     logger.info(`[Auth:${requestId}] Authentication successful for user: ${user.email} (${user.role})`);
 
     // 3. Attach user object to the request
-    req.user = user;
+    req.user = {
+      userId: user.userId,
+      email: user.email,
+      passwordHash: '', // Not exposed by Prisma select, satisfy type
+      role: user.role,
+      createdAt: user.createdAt,
+    };
     next();
   } catch (error: any) {
     // Handle JWT errors (e.g., expired, invalid signature)
@@ -63,7 +69,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
 };
 
 // Middleware for role-based access control
-export const roleMiddleware = (requiredRole: UserRole) => {
+export const roleMiddleware = (requiredRole: string) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     const requestId = Math.random().toString(36).substring(7);
     logger.debug(`[Role:${requestId}] Authorization check for ${req.method} ${req.originalUrl} - Required role: ${requiredRole}`);
@@ -85,7 +91,7 @@ export const roleMiddleware = (requiredRole: UserRole) => {
 };
 
 // Middleware for allowing multiple roles
-export const rolesMiddleware = (allowedRoles: UserRole[]) => {
+export const rolesMiddleware = (allowedRoles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     const requestId = Math.random().toString(36).substring(7);
     logger.debug(`[Role:${requestId}] Authorization check for ${req.method} ${req.originalUrl} - Allowed roles: ${allowedRoles.join(', ')}`);

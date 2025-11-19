@@ -1,5 +1,5 @@
 import { db } from '../../core/db/prisma.js';
-import {  OfferStatus } from '@prisma/client';
+import type { OfferStatus } from '@prisma/client';
 import type {Offer} from '@prisma/client';
 import { HttpError } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';
@@ -29,14 +29,14 @@ class OfferService {
    */
   public async createOffer(creatorId: string, dto: CreateOfferDto): Promise<Offer> {
     logger.info(`[Offers] Creating new offer for creatorId: ${creatorId}`);
-    logger.debug(`[Offers] Offer data:`, { title: dto.title, status: dto.status || OfferStatus.DRAFT });
+    logger.debug(`[Offers] Offer data:`, { title: dto.title, status: dto.status || 'DRAFT' });
     
     try {
       const newOffer = await db.offer.create({
         data: {
           ...dto,
           creatorId,
-          status: dto.status || OfferStatus.DRAFT
+          status: dto.status || 'DRAFT'
         },
       });
       
@@ -84,7 +84,7 @@ class OfferService {
         imageUrl: originalOffer.imageUrl,
         startDateTime: new Date(), // Set new start/end times
         endDateTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // e.g., 7 days from now
-        status: OfferStatus.DRAFT,
+        status: 'DRAFT',
     };
     
     logger.debug(`[Offers] Creating repost with title: "${newOfferData.title}"`);
@@ -213,7 +213,7 @@ class OfferService {
     }
 
     // 2. Prevent updates if the offer is already expired
-    if (offerToUpdate.status === OfferStatus.EXPIRED) {
+    if (offerToUpdate.status === 'EXPIRED') {
         throw new HttpError('Cannot update an expired offer', 400);
     }
 

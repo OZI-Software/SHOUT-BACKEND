@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { userController } from './users.controller.js';
 import { authMiddleware, roleMiddleware } from '../../core/middleware/auth.middleware.js';
-import { UserRole } from "@prisma/client";
+import type { UserRole } from "@prisma/client";
 
 /**
  * Defines the routes for the User module.
@@ -18,7 +18,7 @@ class UserRoutes {
     this.router.get('/me', authMiddleware, userController.getMe);
     
     // Get a user by ID (requires ADMIN role for fetching others' profiles)
-    this.router.get('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), userController.getUserById);
+    this.router.get('/:id', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), userController.getUserById);
 
     // Add more routes: e.g., POST, PUT, DELETE
   }

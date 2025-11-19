@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { uploadsController, upload } from './uploads.controller.js';
 import { authMiddleware, rolesMiddleware } from '../../core/middleware/auth.middleware.js';
-import { UserRole } from '@prisma/client';
+import type { UserRole } from '@prisma/client';
 
 class UploadsRoutes {
   public router: Router = Router();
@@ -15,7 +15,7 @@ class UploadsRoutes {
     this.router.post(
       '/image',
       authMiddleware,
-      rolesMiddleware([UserRole.ADMIN, UserRole.STAFF]),
+      rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
       upload.single('file'),
       uploadsController.uploadImage,
     );

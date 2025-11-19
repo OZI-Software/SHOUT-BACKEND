@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { businessController } from './business.controller.js';
 import { authMiddleware, roleMiddleware } from '../../core/middleware/auth.middleware.js';
-import { UserRole } from '@prisma/client';
+import type { UserRole } from '@prisma/client';
 
 class BusinessRoutes {
   public router: Router = Router();
@@ -15,8 +15,8 @@ class BusinessRoutes {
     this.router.get('/nearby', businessController.getNearbyBusinesses);
 
     // Get and Update current user's business profile (requires ADMIN role)
-    this.router.get('/me', authMiddleware, roleMiddleware(UserRole.ADMIN), businessController.getMyBusinessProfile);
-    this.router.put('/me', authMiddleware, roleMiddleware(UserRole.ADMIN), businessController.updateMyBusinessProfile);
+    this.router.get('/me', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), businessController.getMyBusinessProfile);
+    this.router.put('/me', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), businessController.updateMyBusinessProfile);
 
     // Offers of a given businessId
     this.router.get('/:id/offers', businessController.getBusinessOffers);

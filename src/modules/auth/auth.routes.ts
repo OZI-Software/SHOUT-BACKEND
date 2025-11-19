@@ -11,6 +11,8 @@ class AuthRoutes {
   private initializeRoutes() {
     this.router.post('/register', authController.register);
     this.router.post('/login', authController.login);
+    this.router.post('/password-reset/request', authController.requestPasswordReset);
+    this.router.post('/password-reset/confirm', authController.confirmPasswordReset);
   }
 }
 

@@ -2,7 +2,7 @@ import type { Response, NextFunction } from 'express';
 import { offerService } from './offers.service.js';
 import { HttpError } from '../../config/index.js';
 import type {AuthRequest} from '../../config/index.js';
-import { OfferStatus, BusinessStatus} from '@prisma/client';
+import type { OfferStatus, BusinessStatus} from '@prisma/client';
 import { uploadBufferToCloudinary } from '../../core/cloudinary.js';
 import { db } from '../../core/db/prisma.js';
 
@@ -14,7 +14,7 @@ class OfferController {
       // Enforce business approval before allowing content creation
       const business = await db.business.findFirst({ where: { userId: req.user.userId } });
       if (!business) throw new HttpError('Business profile not found', 404);
-      if (business.status !== (BusinessStatus.APPROVED)) {
+      if (business.status !== ('APPROVED' as unknown as BusinessStatus)) {
         throw new HttpError('Business is not approved to post content', 403);
       }
       
@@ -43,7 +43,7 @@ class OfferController {
       }
 
       // Optional status passthrough if provided and valid
-      if (req.body.status && Object.values(OfferStatus).includes(req.body.status)) {
+      if (req.body.status && Object.values({ DRAFT: 'DRAFT', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
         dto.status = req.body.status;
       }
 
@@ -72,7 +72,7 @@ class OfferController {
         if (!req.user) throw new HttpError('Not authenticated', 401);
         const business = await db.business.findFirst({ where: { userId: req.user.userId } });
         if (!business) throw new HttpError('Business profile not found', 404);
-        if (business.status !== (BusinessStatus.APPROVED)) {
+        if (business.status !== ('APPROVED' as unknown as BusinessStatus)) {
           throw new HttpError('Business is not approved to repost content', 403);
         }
         const { id } = req.params;
@@ -127,7 +127,7 @@ class OfferController {
       if (!req.user) throw new HttpError('Not authenticated', 401);
       const business = await db.business.findFirst({ where: { userId: req.user.userId } });
       if (!business) throw new HttpError('Business profile not found', 404);
-      if (business.status !== (BusinessStatus.APPROVED)) {
+      if (business.status !== ('APPROVED' as unknown as BusinessStatus)) {
         throw new HttpError('Business is not approved to delete content', 403);
       }
       const { id } = req.params;
@@ -147,7 +147,7 @@ class OfferController {
       if (!req.user) throw new HttpError('Not authenticated', 401);
       const business = await db.business.findFirst({ where: { userId: req.user.userId } });
       if (!business) throw new HttpError('Business profile not found', 404);
-      if (business.status !== (BusinessStatus.APPROVED)) {
+      if (business.status !== 'APPROVED') {
         throw new HttpError('Business is not approved to update content', 403);
       }
       const { id } = req.params;
@@ -170,7 +170,7 @@ class OfferController {
       // Or accept direct link update
       if (req.body.imageUrl) updateData.imageUrl = req.body.imageUrl;
       // Ensure status is a valid enum value if provided
-      if (req.body.status && Object.values(OfferStatus).includes(req.body.status)) {
+      if (req.body.status && Object.values({ DRAFT: 'DRAFT', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
         updateData.status = req.body.status;
       }
       
