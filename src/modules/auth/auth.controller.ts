@@ -7,14 +7,27 @@ class AuthController {
   public register = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password, isBusiness } = req.body;
-      
+
       // Basic validation for core user fields
-      if (!email || !password || isBusiness === undefined) {
-        throw new HttpError('Email, password, and isBusiness flag are required.', 400);
+      if (!email || isBusiness === undefined) {
+        throw new HttpError('Email and isBusiness flag are required.', 400);
+      }
+
+      // Password is required for non-business users (e.g. staff)
+      if (!isBusiness && !password) {
+        throw new HttpError('Password is required for staff accounts.', 400);
       }
 
       // The service layer handles validation for required business fields if isBusiness is true
       const token = await authService.register(req.body);
+
+      if (!token) {
+        res.status(201).json({
+          status: 'success',
+          message: 'Registration successful. Pending approval.',
+        });
+        return;
+      }
 
       res.status(201).json({
         status: 'success',
@@ -26,7 +39,7 @@ class AuthController {
     }
   };
 
-  // POST /api/v1/auth/login (remains the same)
+  // POST /api/v1/auth/login
   public login = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password } = req.body;

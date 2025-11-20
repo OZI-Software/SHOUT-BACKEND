@@ -1,7 +1,7 @@
 import { db } from '../../core/db/prisma.js';
 import type { User } from '@prisma/client';
-import { HttpError} from '../../config/index.js';
-import type {JwtPayload } from '../../config/index.js';
+import { HttpError } from '../../config/index.js';
+import type { JwtPayload } from '../../config/index.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET, FRONTEND_BASE_URL } from '../../config/index.d.js';
@@ -11,7 +11,7 @@ import { emailService } from '../../core/email/email.service.js';
 // Define DTOs (Data Transfer Objects) for better type safety
 interface RegisterDto {
   email: string;
-  password: string; // Required for User
+  password?: string; // Optional for Business (set later)
   isBusiness: boolean; // Flag to indicate business registration
 
   // Business fields (only required if isBusiness is true)
@@ -36,16 +36,10 @@ class AuthService {
    * Registers a new User, optionally creating a Business profile for them.
    * This handles the simultaneous signup and business registration.
    */
-  public async register(dto: RegisterDto): Promise<string> {
+  public async register(dto: RegisterDto): Promise<string | null> {
     const { email, password, isBusiness, ...businessData } = dto;
 
-    // --- SECURITY NOTE ---
-    // Your current Prisma schema for 'User' does NOT include a field for password.
-    // In a real application, you MUST add a `passwordHash: String` field to the User model
-    // to securely store the hashed password for login verification.
-    // The code below assumes such a field exists or is handled separately.
-    // logger.info("[AuthService] Business Data is");
-    logger.info('[AuthService] Registering user with email:', email, businessData.description, businessData.address, businessData.pinCode, businessData.latitude, businessData.longitude);
+    logger.info('[AuthService] Registering user with email:', email);
 
     // 1. Check if user already exists
     const existingUser = await db.user.findUnique({ where: { email } });
@@ -53,15 +47,20 @@ class AuthService {
       throw new HttpError('User already exists with this email', 409);
     }
 
-    // 2. Hash the password
-    const hashedPassword = await bcrypt.hash(password, this.saltRounds);
+    // 2. Hash the password if provided
+    let hashedPassword: string | null = null;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, this.saltRounds);
+    } else if (!isBusiness) {
+      throw new HttpError('Password is required for staff accounts', 400);
+    }
 
-    const role = isBusiness ? 'ADMIN' : 'STAFF'; 
+    const role = isBusiness ? 'ADMIN' : 'STAFF';
 
     // 3. Perform registration in a database transaction
     try {
       const newUser = await db.$transaction(async (tx) => {
-        
+
         // --- Step 3a: Create User ---
         const user = await tx.user.create({
           data: {
@@ -72,8 +71,8 @@ class AuthService {
         });
 
         // --- Step 3b: Create Business if requested ---
-        logger.info('[AuthService] Creating business profile for user:', user.userId);
         if (isBusiness) {
+          logger.info('[AuthService] Creating business profile for user:', user.userId);
           const missing: string[] = [];
           if (!businessData.businessName) missing.push('businessName');
           if (!businessData.description) missing.push('description');
@@ -85,14 +84,14 @@ class AuthService {
           if (missing.length > 0) {
             throw new HttpError(`Missing required business fields: ${missing.join(', ')}`, 400);
           }
-          logger.info('[AuthService] Business profile created successfully for user:', user.userId);
+
           await tx.business.create({
             data: {
               businessName: businessData.businessName!,
               description: businessData.description!,
               address: businessData.address!,
               pinCode: Number(businessData.pinCode),
-              latitude: Number(businessData.latitude), 
+              latitude: Number(businessData.latitude),
               longitude: Number(businessData.longitude),
               googleMapsLink: String(businessData.googleMapsLink),
               // New approval workflow fields
@@ -104,21 +103,23 @@ class AuthService {
         return user;
       });
 
-      // 4. Generate JWT
+      // 4. Generate JWT or return null for pending business
+      if (isBusiness) {
+        return null;
+      }
       return this.generateToken(newUser);
     } catch (error) {
       // Catch HttpErrors thrown within the transaction
-      if (error instanceof HttpError) throw error; 
-      
+      if (error instanceof HttpError) throw error;
+
       // Handle Prisma errors (e.g., if a relation fails)
-      if ((error as any).code === 'P2003') { 
-         throw new HttpError('Invalid input data provided for registration', 400);
+      if ((error as any).code === 'P2003') {
+        throw new HttpError('Invalid input data provided for registration', 400);
       }
+      logger.error('Registration error:', error);
       throw new HttpError('Registration failed due to server error', 500);
     }
   }
-  
-  // (The rest of the AuthService, including login and generateToken, remains the same)
 
   /**
    * Authenticates a user and returns a JWT.
@@ -127,11 +128,32 @@ class AuthService {
     // 1. Find user by email (include password hash in a real setup)
     const user = await db.user.findUnique({
       where: { email: dto.email },
-      select: { userId: true, email: true, role: true, passwordHash: true },
+      select: {
+        userId: true,
+        email: true,
+        role: true,
+        passwordHash: true,
+        business: { select: { status: true } }
+      },
     });
 
     if (!user) {
       throw new HttpError('Invalid credentials', 401);
+    }
+
+    // Check business status
+    if (user.role === 'ADMIN' && user.business) {
+      if (user.business.status === 'PENDING') {
+        throw new HttpError('Your account is pending approval. You will be notified via email once approved.', 403);
+      }
+      if (user.business.status === 'REJECTED') {
+        throw new HttpError('Your account application has been rejected.', 403);
+      }
+    }
+
+    // Check if password exists (it might be null for pending businesses)
+    if (!user.passwordHash) {
+      throw new HttpError('Please set your password via the link sent to your email.', 401);
     }
 
     // 2. Compare password securely using bcrypt

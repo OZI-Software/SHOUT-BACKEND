@@ -9,6 +9,7 @@ datasource db {
 
 // Enum for user roles, based on the 'users' table design
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   STAFF
 }
@@ -36,7 +37,8 @@ model User {
   email String @unique
 
   // Securely stored bcrypt password hash
-  passwordHash String
+  // Optional because businesses might register without a password initially (waiting for approval)
+  passwordHash String?
 
   // Corresponds to role (enum)
   role UserRole @default(STAFF)

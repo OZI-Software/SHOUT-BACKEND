@@ -5,7 +5,8 @@ import { db } from '../../core/db/prisma.js';
 import { logger } from '../../core/utils/logger.js';
 import type { BusinessStatus } from '@prisma/client';
 import { emailService } from '../../core/email/email.service.js';
-import { FRONTEND_BASE_URL } from '../../config/index.d.js';
+import { FRONTEND_BASE_URL, JWT_SECRET } from '../../config/index.d.js';
+import jwt from 'jsonwebtoken';
 
 class BusinessApprovalsController {
   // GET /api/v1/admin/businesses?status=PENDING
@@ -52,15 +53,22 @@ class BusinessApprovalsController {
           approvedBy: req.user.userId,
           ...(reviewNote !== undefined ? { reviewNote } : {}),
         },
-        include: { user: { select: { email: true } } },
+        include: { user: { select: { userId: true, email: true } } },
       });
       logger.info(`[Admin] Approved business ${id} by ${req.user.userId}`);
-      // Notify owner via email
+
+      // Notify owner via email with password set link
       try {
         const toEmail = updated.user?.email;
-        if (toEmail) {
-          const dashboardUrl = `${FRONTEND_BASE_URL}/dashboard`;
-          await emailService.sendBusinessApproved(toEmail, updated.businessName, dashboardUrl);
+        const userId = updated.user?.userId;
+        if (toEmail && userId) {
+          // Generate reset token
+          const token = jwt.sign({ type: 'reset', userId, email: toEmail }, JWT_SECRET, { expiresIn: '24h' });
+          const setPasswordUrl = `${FRONTEND_BASE_URL}/auth/reset?token=${encodeURIComponent(token)}`;
+
+          // We use the dashboardUrl parameter to pass the setPasswordUrl for now
+          // Ideally we should update the template to be more specific
+          await emailService.sendBusinessApproved(toEmail, updated.businessName, setPasswordUrl);
         }
       } catch (mailErr) {
         logger.error('[Admin] Failed to send approval email', mailErr);

@@ -1,44 +1,117 @@
-export function businessApprovedTemplate(data: { businessName: string; dashboardUrl: string }) {
+const baseStyles = `
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #ffffff;
+`;
+
+const headerStyle = `
+  text-align: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 30px;
+`;
+
+const logoStyle = `
+  font-size: 24px;
+  font-weight: bold;
+  color: #f97316; /* Primary Orange */
+  text-decoration: none;
+  letter-spacing: -0.5px;
+`;
+
+const buttonStyle = `
+  display: inline-block;
+  padding: 12px 24px;
+  background-color: #f97316;
+  color: #ffffff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+  margin-top: 20px;
+  margin-bottom: 20px;
+`;
+
+const footerStyle = `
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+`;
+
+function wrapTemplate(content: string) {
   return `
-  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111;">
-    <h2 style="margin:0 0 12px">Your business is approved 🎉</h2>
-    <p>Hi,</p>
-    <p>Your business <strong>${data.businessName}</strong> has been approved on SHOUT.</p>
-    <p>You can now manage your offers and profile from your dashboard.</p>
-    <p>
-      <a href="${data.dashboardUrl}" style="display:inline-block;padding:10px 14px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Go to dashboard</a>
-    </p>
-    <p style="margin-top:20px;color:#555">Thanks for being part of SHOUT!</p>
-  </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb;">
+      <div style="padding: 40px 0;">
+        <div style="${baseStyles}">
+          <div style="${headerStyle}">
+            <a href="#" style="${logoStyle}">SHOUT</a>
+          </div>
+          ${content}
+          <div style="${footerStyle}">
+            <p>&copy; ${new Date().getFullYear()} SHOUT. All rights reserved.</p>
+            <p>This is an automated message, please do not reply.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
   `;
+}
+
+export function businessApprovedTemplate(data: { businessName: string; dashboardUrl: string }) {
+  const content = `
+    <h2 style="margin: 0 0 20px; font-size: 24px; color: #111;">Your business is approved! 🎉</h2>
+    <p style="margin-bottom: 16px;">Hi there,</p>
+    <p style="margin-bottom: 16px;">Great news! Your business <strong>${data.businessName}</strong> has been verified and approved on SHOUT.</p>
+    <p style="margin-bottom: 24px;">You now have full access to manage your profile, post offers, and connect with customers.</p>
+    <div style="text-align: center;">
+      <a href="${data.dashboardUrl}" style="${buttonStyle}">Access Account</a>
+    </div>
+    <p style="margin-top: 24px; color: #555;">We're excited to have you on board!</p>
+  `;
+  return wrapTemplate(content);
 }
 
 export function businessRejectedTemplate(data: { businessName: string; reason?: string; helpUrl: string }) {
-  return `
-  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111;">
-    <h2 style="margin:0 0 12px">Business application update</h2>
-    <p>Hi,</p>
-    <p>We’re sorry to say your business <strong>${data.businessName}</strong> was not approved.</p>
-    ${data.reason ? `<p>Reason: ${data.reason}</p>` : ''}
-    <p>If you believe this was a mistake, reply to this email or review the guidelines below.</p>
-    <p>
-      <a href="${data.helpUrl}" style="display:inline-block;padding:10px 14px;background:#6b7280;color:#fff;border-radius:8px;text-decoration:none">View guidelines</a>
-    </p>
-    <p style="margin-top:20px;color:#555">You can re-apply at any time.</p>
-  </div>
+  const content = `
+    <h2 style="margin: 0 0 20px; font-size: 24px; color: #111;">Update on your application</h2>
+    <p style="margin-bottom: 16px;">Hi there,</p>
+    <p style="margin-bottom: 16px;">Thank you for registering <strong>${data.businessName}</strong> with SHOUT.</p>
+    <p style="margin-bottom: 16px;">Unfortunately, we could not approve your business application at this time.</p>
+    ${data.reason ? `
+      <div style="background-color: #fff1f2; border-left: 4px solid #e11d48; padding: 16px; margin: 20px 0; color: #be123c;">
+        <strong>Reason:</strong> ${data.reason}
+      </div>
+    ` : ''}
+    <p style="margin-bottom: 24px;">Please review our guidelines to ensure your business meets all requirements before reapplying.</p>
+    <div style="text-align: center;">
+      <a href="${data.helpUrl}" style="${buttonStyle.replace('#0d9488', '#4b5563')}">View Guidelines</a>
+    </div>
   `;
+  return wrapTemplate(content);
 }
 
 export function passwordResetTemplate(data: { resetUrl: string }) {
-  return `
-  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111;">
-    <h2 style="margin:0 0 12px">Reset your password</h2>
-    <p>We received a request to reset your password.</p>
-    <p>If you didn’t request this, you can safely ignore this email.</p>
-    <p>
-      <a href="${data.resetUrl}" style="display:inline-block;padding:10px 14px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Reset password</a>
-    </p>
-    <p style="margin-top:20px;color:#555">This link expires in 1 hour.</p>
-  </div>
+  const content = `
+    <h2 style="margin: 0 0 20px; font-size: 24px; color: #111;">Reset your password</h2>
+    <p style="margin-bottom: 16px;">We received a request to reset the password for your SHOUT account.</p>
+    <p style="margin-bottom: 24px;">If you didn't make this request, you can safely ignore this email.</p>
+    <div style="text-align: center;">
+      <a href="${data.resetUrl}" style="${buttonStyle}">Reset Password</a>
+    </div>
+    <p style="margin-top: 24px; font-size: 14px; color: #666;">This link will expire in 1 hour for security reasons.</p>
   `;
+  return wrapTemplate(content);
 }
