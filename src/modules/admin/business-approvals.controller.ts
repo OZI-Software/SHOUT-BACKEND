@@ -5,7 +5,7 @@ import { db } from '../../core/db/prisma.js';
 import { logger } from '../../core/utils/logger.js';
 import type { BusinessStatus } from '@prisma/client';
 import { emailService } from '../../core/email/email.service.js';
-import { FRONTEND_BASE_URL, JWT_SECRET } from '../../config/index.d.js';
+import { FRONTEND_BASE_URL, JWT_SECRET } from '../../config/index.js';
 import jwt from 'jsonwebtoken';
 
 class BusinessApprovalsController {
@@ -44,7 +44,9 @@ class BusinessApprovalsController {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
       const { id } = req.params;
-      const reviewNote = (req.body?.reviewNote as string) || undefined;
+      // Fix: Allow empty string as reviewNote
+      const reviewNote = req.body.reviewNote;
+
       const updated = await db.business.update({
         where: { businessId: id as string },
         data: {
@@ -84,7 +86,9 @@ class BusinessApprovalsController {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
       const { id } = req.params;
-      const reviewNote = (req.body?.reviewNote as string) || undefined;
+      // Fix: Allow empty string as reviewNote
+      const reviewNote = req.body.reviewNote;
+
       const updated = await db.business.update({
         where: { businessId: id as string },
         data: {

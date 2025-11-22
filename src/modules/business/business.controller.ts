@@ -1,8 +1,8 @@
 import type { Response, NextFunction } from 'express';
 import { businessService } from './business.service.js';
-import { offerService } from '../offers/offers.service.js';
-import { HttpError} from '../../config/index.js';
-import type {AuthRequest } from '../../config/index.js';
+import { offerService } from '../offers/offers.service.ts.backup';
+import { HttpError } from '../../config/index.js';
+import type { AuthRequest } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';
 
 class BusinessController {
@@ -23,7 +23,7 @@ class BusinessController {
   public updateMyBusinessProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
-      
+
       // Ensure only Business owners (ADMIN role) can update their profile
       if (req.user.role !== 'ADMIN') {
         throw new HttpError('Forbidden: Only business owners can update their profile', 403);

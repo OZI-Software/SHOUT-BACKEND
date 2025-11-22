@@ -1,271 +1,171 @@
 import { db } from '../../core/db/prisma.js';
-import type { OfferStatus } from '@prisma/client';
-import type {Offer} from '@prisma/client';
+import type { OfferStatus, Offer } from '@prisma/client';
 import { HttpError } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';
 
-
-interface CreateOfferDto {
-  title: string;
-  description: string;
-  imageUrl: string;
-  startDateTime: Date;
-  endDateTime: Date;
-  status?: OfferStatus;
+export interface CreateOfferDto {
+    title: string;
+    description: string;
+    imageUrl: string;
+    startDateTime: Date;
+    endDateTime: Date;
+    status?: OfferStatus;
 }
 
-interface UpdateOfferDto {
-  title?: string;
-  description?: string;
-  imageUrl?: string;
-  status?: OfferStatus;
-  startDateTime?: Date;
-  endDateTime?: Date;
+export interface UpdateOfferDto {
+    title?: string;
+    description?: string;
+    imageUrl?: string;
+    status?: OfferStatus;
+    startDateTime?: Date;
+    endDateTime?: Date;
 }
 
 class OfferService {
-  /**
-   * Creates a new offer associated with the creatorId (business owner/admin).
-   */
-  public async createOffer(creatorId: string, dto: CreateOfferDto): Promise<Offer> {
-    logger.info(`[Offers] Creating new offer for creatorId: ${creatorId}`);
-    logger.debug(`[Offers] Offer data:`, { title: dto.title, status: dto.status || 'DRAFT' });
-    
-    try {
-      const newOffer = await db.offer.create({
-        data: {
-          ...dto,
-          creatorId,
-          status: dto.status || 'DRAFT'
-        },
-      });
-      
-      logger.info(`[Offers] Offer created successfully - offerId: ${newOffer.id}, title: "${newOffer.title}"`);
-      return newOffer;
-    } catch (error) {
-      logger.error(`[Offers] Error creating offer for creatorId: ${creatorId}:`, error);
-      throw new HttpError('Failed to create offer', 500);
-    }
-  }
-
-  /**
-   * Finds a single offer by its ID.
-   */
-  public async findOfferById(id: string): Promise<Offer> {
-    logger.debug(`[Offers] Looking up offer by id: ${id}`);
-    
-    const offer = await db.offer.findUnique({
-      where: { id },
-      include: { creator: { select: { email: true, role: true } } },
-    });
-    
-    if (!offer) {
-      logger.warn(`[Offers] Offer not found for id: ${id}`);
-      throw new HttpError('Offer not found', 404);
-    }
-    
-    logger.info(`[Offers] Offer found - id: ${id}, title: "${offer.title}", status: ${offer.status}`);
-    return offer;
-  }
-
-  /**
-   * Reposts an existing offer, creating a new record linked to the original.
-   */
-  public async repostOffer(originalOfferId: string, creatorId: string): Promise<Offer> {
-    logger.info(`[Offers] Reposting offer - originalOfferId: ${originalOfferId}, creatorId: ${creatorId}`);
-    
-    const originalOffer = await this.findOfferById(originalOfferId);
-    logger.debug(`[Offers] Original offer found for repost: "${originalOffer.title}"`);
-
-    // Create a new offer based on the original, but with DRAFT status
-    const newOfferData: CreateOfferDto = {
-        title: `REPOST: ${originalOffer.title}`,
-        description: originalOffer.description,
-        imageUrl: originalOffer.imageUrl,
-        startDateTime: new Date(), // Set new start/end times
-        endDateTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // e.g., 7 days from now
-        status: 'DRAFT',
-    };
-    
-    logger.debug(`[Offers] Creating repost with title: "${newOfferData.title}"`);
-    
-    const repostedOffer = await db.offer.create({
-        data: {
-            ...newOfferData,
-            creatorId,
-            repostedFromOfferId: originalOfferId,
+    public async createOffer(creatorId: string, dto: CreateOfferDto): Promise<Offer> {
+        logger.info(`[Offers] Creating new offer for creatorId: ${creatorId}`);
+        try {
+            const newOffer = await db.offer.create({
+                data: { ...dto, creatorId, status: dto.status || 'DRAFT' },
+            });
+            logger.info(`[Offers] Offer created - offerId: ${newOffer.id}`);
+            return newOffer;
+        } catch (error) {
+            logger.error(`[Offers] Error creating offer:`, error);
+            throw new HttpError('Failed to create offer', 500);
         }
-    });
-    
-    logger.info(`[Offers] Offer reposted successfully - newOfferId: ${repostedOffer.id}, originalOfferId: ${originalOfferId}`);
-    return repostedOffer;
-  }
+    }
 
+    public async findOfferById(id: string): Promise<any> {
+        const offer = await db.offer.findUnique({
+            where: { id },
+            include: {
+                creator: {
+                    select: {
+                        email: true,
+                        role: true,
+                        business: {
+                            select: {
+                                businessId: true,
+                                businessName: true,
+                                address: true,
+                                pinCode: true,
+                                latitude: true,
+                                longitude: true,
+                                openingTime: true,
+                                closingTime: true,
+                                workingDays: true,
+                                isOpen24Hours: true,
+                            }
+                        }
+                    }
+                }
+            },
+        });
 
-  /**
-   * Finds active offers within a certain radius of a given point (Geo-filtering for users).
-   */
-  public async findNearbyActiveOffers(latitude: number, longitude: number, radiusMeters: number): Promise<any[]> {
-    logger.info(`[Offers] Finding nearby active offers - lat: ${latitude}, lng: ${longitude}, radius: ${radiusMeters}m`);
-    
-    // if (!process.env.DATABASE_URL?.includes('postgis')) {
-    //     logger.warn('[Offers] PostGIS not detected/configured. Falling back to basic query.');
-    //     return [];
-    // }
+        if (!offer) throw new HttpError('Offer not found', 404);
 
-    logger.debug(`[Offers] Using PostGIS for geo-filtering active offers`);
+        const business = offer.creator.business;
+        return {
+            ...offer,
+            businessId: business?.businessId,
+            businessName: business?.businessName,
+            businessAddress: business?.address,
+            businessPinCode: business?.pinCode,
+            businessLatitude: business?.latitude,
+            businessLongitude: business?.longitude,
+            businessOpeningTime: business?.openingTime,
+            businessClosingTime: business?.closingTime,
+            businessWorkingDays: business?.workingDays,
+            businessIsOpen24Hours: business?.isOpen24Hours,
+        };
+    }
 
-    // // Raw SQL for PostGIS distance calculation and filtering for ACTIVE offers
-    // const nearbyOffers = await db.$queryRaw<Offer[]>`
-    //   SELECT 
-    //     *,
-    //     ST_Distance(
-    //       ST_MakePoint("targetLongitude", "targetLatitude")::geography, 
-    //       ST_MakePoint(${longitude}, ${latitude})::geography
-    //     ) as distanceMeters
-    //   FROM "Offer"
-    //   WHERE "status" = 'ACTIVE' 
-    //   AND ST_DWithin(
-    //     ST_MakePoint("targetLongitude", "targetLatitude")::geography,
-    //     ST_MakePoint(${longitude}, ${latitude})::geography,
-    //     ${radiusMeters}
-    //   )
-    //   ORDER BY distanceMeters
-    // `;
-    
+    public async repostOffer(originalOfferId: string, creatorId: string): Promise<Offer> {
+        const originalOffer = await db.offer.findUnique({ where: { id: originalOfferId } });
+        if (!originalOffer) throw new HttpError('Original offer not found', 404);
 
-    const R = 6371000; // Earth radius in meters
+        const newOfferData: CreateOfferDto = {
+            title: `REPOST: ${originalOffer.title}`,
+            description: originalOffer.description,
+            imageUrl: originalOffer.imageUrl,
+            startDateTime: new Date(),
+            endDateTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000),
+            status: 'DRAFT',
+        };
 
-    // Join offers with businesses (creatorId -> Business.userId) and filter using business coordinates
-    const nearbyOffers = await db.$queryRaw<any[]>`
-      SELECT 
-        o.*,
-        b."businessId" AS "businessId",
-        b."businessName" AS "businessName",
-        (
-          ${R} * acos(
-            least(1, cos(radians(${latitude}))
-            * cos(radians(b."latitude"))
-            * cos(radians(b."longitude") - radians(${longitude})) 
-            + sin(radians(${latitude})) 
-            * sin(radians(b."latitude")))
-          )
-        ) AS "distanceInMeters"
+        return await db.offer.create({
+            data: { ...newOfferData, creatorId, repostedFromOfferId: originalOfferId },
+        });
+    }
+
+    public async findNearbyActiveOffers(latitude: number, longitude: number, radiusMeters: number): Promise<any[]> {
+        const R = 6371000;
+        const nearbyOffers = await db.$queryRaw<any[]>`
+      SELECT o.*, b."businessId", b."businessName", b."address" AS "businessAddress",
+        b."pinCode" AS "businessPinCode", b."latitude" AS "businessLatitude",
+        b."longitude" AS "businessLongitude", b."openingTime" AS "businessOpeningTime",
+        b."closingTime" AS "businessClosingTime", b."workingDays" AS "businessWorkingDays",
+        b."isOpen24Hours" AS "businessIsOpen24Hours",
+        (${R} * acos(least(1, cos(radians(${latitude})) * cos(radians(b."latitude")) *
+        cos(radians(b."longitude") - radians(${longitude})) + 
+        sin(radians(${latitude})) * sin(radians(b."latitude"))))) AS "distanceInMeters"
       FROM "offers" o
       INNER JOIN "businesses" b ON b."userId" = o."creatorId"
-      WHERE o."status" = 'ACTIVE'
-      AND (
-        ${R} * acos(
-          least(1, cos(radians(${latitude}))
-          * cos(radians(b."latitude"))
-          * cos(radians(b."longitude") - radians(${longitude})) 
-          + sin(radians(${latitude})) 
-          * sin(radians(b."latitude")))
-        )
-      ) <= ${radiusMeters}
+      WHERE o."status" = 'ACTIVE' AND o."endDateTime" > NOW()
+      AND (${R} * acos(least(1, cos(radians(${latitude})) * cos(radians(b."latitude")) *
+        cos(radians(b."longitude") - radians(${longitude})) + 
+        sin(radians(${latitude})) * sin(radians(b."latitude"))))) <= ${radiusMeters}
       ORDER BY o."startDateTime" DESC
     `;
-
-    logger.info(`[Offers] Found ${nearbyOffers.length} active offers within ${radiusMeters}m radius`);
-    return nearbyOffers;
-  }
-
-  /**
-   * Finds a single offer by its ID and enriches with business info.
-   */
-  public async findOfferWithBusinessById(id: string): Promise<any> {
-    const offer = await db.offer.findUnique({
-      where: { id },
-    });
-
-    if (!offer) {
-      throw new HttpError('Offer not found', 404);
+        return nearbyOffers;
     }
 
-    const business = await db.business.findUnique({
-      where: { userId: offer.creatorId },
-      select: { businessId: true, businessName: true },
-    });
+    public async updateOffer(offerId: string, creatorId: string, dto: UpdateOfferDto): Promise<Offer> {
+        const offerToUpdate = await db.offer.findUnique({
+            where: { id: offerId },
+            select: { id: true, creatorId: true, status: true },
+        });
 
-    return {
-      ...offer,
-      businessId: business?.businessId,
-      businessName: business?.businessName,
-    };
-  }
+        if (!offerToUpdate) throw new HttpError('Offer not found', 404);
+        if (offerToUpdate.creatorId !== creatorId) {
+            throw new HttpError('Forbidden: You can only update your own offers', 403);
+        }
+        if (offerToUpdate.status === 'EXPIRED') {
+            throw new HttpError('Cannot update an expired offer', 400);
+        }
 
-  /**
-   * Updates an existing offer, ensuring the caller is the creator.
-   */
-  public async updateOffer(offerId: string, creatorId: string, dto: UpdateOfferDto): Promise<Offer> {
-    // 1. Check if the offer exists and if the user is the creator
-    const offerToUpdate = await db.offer.findUnique({
-      where: { id: offerId },
-      select: { id: true, creatorId: true, status: true },
-    });
-
-    if (!offerToUpdate) {
-      throw new HttpError('Offer not found', 404);
+        try {
+            return await db.offer.update({ where: { id: offerId }, data: dto });
+        } catch (error) {
+            logger.error('Error updating offer:', error);
+            throw new HttpError('Failed to update offer', 500);
+        }
     }
 
-    if (offerToUpdate.creatorId !== creatorId) {
-      throw new HttpError('Forbidden: You can only update your own offers', 403);
+    public async findOffersByCreatorId(creatorId: string): Promise<Offer[]> {
+        try {
+            return await db.offer.findMany({
+                where: { creatorId },
+                orderBy: { createdAt: 'desc' },
+            });
+        } catch (error) {
+            logger.error('[Offers] Error fetching offers:', error);
+            throw new HttpError('Failed to fetch offers', 500);
+        }
     }
 
-    // 2. Prevent updates if the offer is already expired
-    if (offerToUpdate.status === 'EXPIRED') {
-        throw new HttpError('Cannot update an expired offer', 400);
+    public async deleteOffer(offerId: string, creatorId: string): Promise<void> {
+        const offer = await db.offer.findUnique({
+            where: { id: offerId },
+            select: { id: true, creatorId: true },
+        });
+        if (!offer) throw new HttpError('Offer not found', 404);
+        if (offer.creatorId !== creatorId) {
+            throw new HttpError('Forbidden: You can only delete your own offers', 403);
+        }
+        await db.offer.delete({ where: { id: offerId } });
     }
-
-    // 3. Perform the update
-    try {
-      const updatedOffer = await db.offer.update({
-        where: { id: offerId },
-        data: dto,
-      });
-      return updatedOffer;
-    } catch (error) {
-      // P2025 is typically "Record to update not found", but we already checked.
-      // We'll log and throw a general error for other DB issues.
-      logger.error('Error updating offer:', error);
-      throw new HttpError('Failed to update offer', 500);
-    }
-  }
-
-  /**
-   * Returns all offers created by the given user (creatorId).
-   */
-  public async findOffersByCreatorId(creatorId: string): Promise<Offer[]> {
-    logger.info(`[Offers] Fetching offers for creatorId: ${creatorId}`);
-    try {
-      const offers = await db.offer.findMany({
-        where: { creatorId },
-        orderBy: { createdAt: 'desc' },
-      });
-      logger.info(`[Offers] Found ${offers.length} offers for creatorId: ${creatorId}`);
-      return offers;
-    } catch (error) {
-      logger.error('[Offers] Error fetching my offers:', error);
-      throw new HttpError('Failed to fetch offers', 500);
-    }
-  }
-
-  /**
-   * Deletes an offer ensuring the caller is the creator.
-   */
-  public async deleteOffer(offerId: string, creatorId: string): Promise<void> {
-    const offer = await db.offer.findUnique({
-      where: { id: offerId },
-      select: { id: true, creatorId: true },
-    });
-    if (!offer) {
-      throw new HttpError('Offer not found', 404);
-    }
-    if (offer.creatorId !== creatorId) {
-      throw new HttpError('Forbidden: You can only delete your own offers', 403);
-    }
-    await db.offer.delete({ where: { id: offerId } });
-  }
 }
 
 export const offerService = new OfferService();

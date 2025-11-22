@@ -2,8 +2,8 @@ import type { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/prisma.js';
 import { HttpError } from '../../config/index.js'
-import type {AuthRequest, JwtPayload} from '../../config/index.js'
-import { JWT_SECRET } from '../../config/index.d.js';
+import type { AuthRequest, JwtPayload } from '../../config/index.js'
+import { JWT_SECRET } from '../../config/index.js';
 // Use string-based roles to avoid runtime enum issues
 import { logger } from '../utils/logger.js';
 
@@ -11,7 +11,7 @@ import { logger } from '../utils/logger.js';
 export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const requestId = Math.random().toString(36).substring(7);
   logger.debug(`[Auth:${requestId}] Authentication attempt for ${req.method} ${req.originalUrl}`);
-  
+
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -57,9 +57,9 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     next();
   } catch (error: any) {
     // Handle JWT errors (e.g., expired, invalid signature)
-    if (error?.name === 'JsonWebTokenError' || 
-        error?.name === 'TokenExpiredError' || 
-        error?.name === 'NotBeforeError') {
+    if (error?.name === 'JsonWebTokenError' ||
+      error?.name === 'TokenExpiredError' ||
+      error?.name === 'NotBeforeError') {
       logger.warn(`[Auth:${requestId}] JWT verification failed: ${error.message}`);
       return next(new HttpError('Invalid or expired token', 401));
     }
@@ -73,18 +73,18 @@ export const roleMiddleware = (requiredRole: string) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     const requestId = Math.random().toString(36).substring(7);
     logger.debug(`[Role:${requestId}] Authorization check for ${req.method} ${req.originalUrl} - Required role: ${requiredRole}`);
-    
+
     // Assuming authMiddleware has run and req.user is populated
     if (!req.user) {
       logger.warn(`[Role:${requestId}] Authorization failed - No user attached to request`);
       return next(new HttpError('Forbidden: Insufficient permissions', 403));
     }
-    
+
     if (req.user.role !== requiredRole) {
       logger.warn(`[Role:${requestId}] Authorization failed - User ${req.user.email} has role ${req.user.role}, required: ${requiredRole}`);
       return next(new HttpError('Forbidden: Insufficient permissions', 403));
     }
-    
+
     logger.info(`[Role:${requestId}] Authorization successful - User ${req.user.email} has required role: ${requiredRole}`);
     next();
   };

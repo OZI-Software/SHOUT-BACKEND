@@ -75,9 +75,9 @@ export function businessApprovedTemplate(data: { businessName: string; dashboard
     <h2 style="margin: 0 0 20px; font-size: 24px; color: #111;">Your business is approved! 🎉</h2>
     <p style="margin-bottom: 16px;">Hi there,</p>
     <p style="margin-bottom: 16px;">Great news! Your business <strong>${data.businessName}</strong> has been verified and approved on SHOUT.</p>
-    <p style="margin-bottom: 24px;">You now have full access to manage your profile, post offers, and connect with customers.</p>
+    <p style="margin-bottom: 24px;">To get started, please set your password and log in to your dashboard.</p>
     <div style="text-align: center;">
-      <a href="${data.dashboardUrl}" style="${buttonStyle}">Access Account</a>
+      <a href="${data.dashboardUrl}" style="${buttonStyle}">Set Password & Login</a>
     </div>
     <p style="margin-top: 24px; color: #555;">We're excited to have you on board!</p>
   `;

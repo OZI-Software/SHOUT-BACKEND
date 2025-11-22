@@ -32,7 +32,7 @@ class AuthController {
       res.status(201).json({
         status: 'success',
         message: 'Registration successful',
-        token,
+        data: { token },
       });
     } catch (error) {
       next(error);
@@ -52,7 +52,7 @@ class AuthController {
       res.status(200).json({
         status: 'success',
         message: 'Login successful',
-        token,
+        data: { token },
       });
     } catch (error) {
       next(error);

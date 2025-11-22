@@ -80,6 +80,12 @@ model Business {
   latitude       Float
   longitude      Float
 
+  // Business hours
+  openingTime   String?  // e.g., "09:00"
+  closingTime   String?  // e.g., "22:00"
+  workingDays   String?  // e.g., "Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+  isOpen24Hours Boolean  @default(false)
+
   // Corresponds to created_at
   createdAt DateTime @default(now())
 

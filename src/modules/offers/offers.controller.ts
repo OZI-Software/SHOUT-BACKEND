@@ -1,8 +1,8 @@
 import type { Response, NextFunction } from 'express';
-import { offerService } from './offers.service.js';
+import { offerService } from './offers.service.ts.backup';
 import { HttpError } from '../../config/index.js';
-import type {AuthRequest} from '../../config/index.js';
-import type { OfferStatus, BusinessStatus} from '@prisma/client';
+import type { AuthRequest } from '../../config/index.js';
+import type { OfferStatus, BusinessStatus } from '@prisma/client';
 import { uploadBufferToCloudinary } from '../../core/cloudinary.js';
 import { db } from '../../core/db/prisma.js';
 
@@ -17,11 +17,11 @@ class OfferController {
       if (business.status !== ('APPROVED' as unknown as BusinessStatus)) {
         throw new HttpError('Business is not approved to post content', 403);
       }
-      
+
       // Validation check for mandatory fields  
       const { title, description, startDateTime, endDateTime } = req.body;
       if (!title || !description || !startDateTime || !endDateTime) {
-          throw new HttpError('Missing required fields', 400);
+        throw new HttpError('Missing required fields', 400);
       }
 
       const dto: any = {
@@ -69,19 +69,19 @@ class OfferController {
   // POST /api/v1/offers/:id/repost
   public repostOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        if (!req.user) throw new HttpError('Not authenticated', 401);
-        const business = await db.business.findFirst({ where: { userId: req.user.userId } });
-        if (!business) throw new HttpError('Business profile not found', 404);
-        if (business.status !== ('APPROVED' as unknown as BusinessStatus)) {
-          throw new HttpError('Business is not approved to repost content', 403);
-        }
-        const { id } = req.params;
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+      const business = await db.business.findFirst({ where: { userId: req.user.userId } });
+      if (!business) throw new HttpError('Business profile not found', 404);
+      if (business.status !== ('APPROVED' as unknown as BusinessStatus)) {
+        throw new HttpError('Business is not approved to repost content', 403);
+      }
+      const { id } = req.params;
 
-        const newOffer = await offerService.repostOffer(id as string, req.user.userId);
-        
-        res.status(201).json({ status: 'success', message: 'Offer successfully reposted as DRAFT', data: newOffer });
+      const newOffer = await offerService.repostOffer(id as string, req.user.userId);
+
+      res.status(201).json({ status: 'success', message: 'Offer successfully reposted as DRAFT', data: newOffer });
     } catch (error) {
-        next(error);
+      next(error);
     }
   };
 
@@ -155,7 +155,7 @@ class OfferController {
 
       // Prepare DTO, converting dates and numbers
       const updateData: any = {};
-      
+
       // Sanitization and type conversion
       if (req.body.startDateTime) updateData.startDateTime = new Date(req.body.startDateTime);
       if (req.body.endDateTime) updateData.endDateTime = new Date(req.body.endDateTime);
@@ -173,7 +173,7 @@ class OfferController {
       if (req.body.status && Object.values({ DRAFT: 'DRAFT', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
         updateData.status = req.body.status;
       }
-      
+
       // If no valid fields were provided for update
       if (Object.keys(updateData).length === 0) {
         throw new HttpError('No valid fields provided for update', 400);
@@ -185,7 +185,7 @@ class OfferController {
     } catch (error) {
       next(error);
     }
-}
+  }
 }
 
 export const offerController = new OfferController();
