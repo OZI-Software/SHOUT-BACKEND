@@ -67,8 +67,28 @@ class AuthService {
           if (!businessData.latitude) missing.push('latitude');
           if (!businessData.longitude) missing.push('longitude');
           if (!businessData.googleMapsLink) missing.push('googleMapsLink');
+          // Timings are required unless explicitly open 24 hours
+          const is24 = !!businessData.isOpen24Hours;
+          if (!is24) {
+            if (!businessData.openingTime) missing.push('openingTime');
+            if (!businessData.closingTime) missing.push('closingTime');
+            if (!businessData.workingDays) missing.push('workingDays');
+          }
           if (missing.length > 0) {
             throw new HttpError(`Missing required business fields: ${missing.join(', ')}`, 400);
+          }
+
+          // Validate time format (HH:MM) when not 24 hours
+          if (!is24) {
+            const re = /^([0-1]\d|2[0-3]):[0-5]\d$/;
+            const open = String(businessData.openingTime);
+            const close = String(businessData.closingTime);
+            if (!re.test(open) || !re.test(close)) {
+              throw new HttpError('Opening and closing times must be in HH:MM format', 400);
+            }
+            if (open >= close) {
+              throw new HttpError('Closing time must be later than opening time', 400);
+            }
           }
 
           await tx.business.create({
@@ -80,12 +100,13 @@ class AuthService {
               latitude: Number(businessData.latitude),
               longitude: Number(businessData.longitude),
               googleMapsLink: String(businessData.googleMapsLink),
-              openingTime: businessData.openingTime ?? null,
-              closingTime: businessData.closingTime ?? null,
-              workingDays: businessData.workingDays ?? null,
-              isOpen24Hours: businessData.isOpen24Hours ?? false,
               status: 'PENDING',
               userId: user.userId,
+              // Business timings
+              isOpen24Hours: is24,
+              openingTime: is24 ? null : String(businessData.openingTime),
+              closingTime: is24 ? null : String(businessData.closingTime),
+              workingDays: is24 ? null : String(businessData.workingDays),
             },
           });
         }
@@ -99,8 +120,11 @@ class AuthService {
       if ((error as any).code === 'P2003') {
         throw new HttpError('Invalid input data provided for registration', 400);
       }
+      // Surface Prisma error codes to aid debugging schema mismatches
+      const code = (error as any)?.code;
+      const msg = (error as any)?.message || 'Registration failed due to server error';
       logger.error('Registration error:', error);
-      throw new HttpError('Registration failed due to server error', 500);
+      throw new HttpError(code ? `${msg} (code ${code})` : msg, 500);
     }
   }
 

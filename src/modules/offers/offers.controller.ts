@@ -1,5 +1,5 @@
 import type { Response, NextFunction } from 'express';
-import { offerService } from './offers.service.ts.backup';
+import { offerService } from './offers.service.js';
 import { HttpError } from '../../config/index.js';
 import type { AuthRequest } from '../../config/index.js';
 import type { OfferStatus, BusinessStatus } from '@prisma/client';
@@ -43,7 +43,7 @@ class OfferController {
       }
 
       // Optional status passthrough if provided and valid
-      if (req.body.status && Object.values({ DRAFT: 'DRAFT', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
+      if (req.body.status && Object.values({ DRAFT: 'DRAFT', SCHEDULED: 'SCHEDULED', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
         dto.status = req.body.status;
       }
 
@@ -59,7 +59,7 @@ class OfferController {
   public getOfferById = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const offer = await offerService.findOfferWithBusinessById(id as string);
+      const offer = await offerService.findOfferById(id as string);
       res.status(200).json({ status: 'success', data: offer });
     } catch (error) {
       next(error);
@@ -170,7 +170,7 @@ class OfferController {
       // Or accept direct link update
       if (req.body.imageUrl) updateData.imageUrl = req.body.imageUrl;
       // Ensure status is a valid enum value if provided
-      if (req.body.status && Object.values({ DRAFT: 'DRAFT', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
+      if (req.body.status && Object.values({ DRAFT: 'DRAFT', SCHEDULED: 'SCHEDULED', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
         updateData.status = req.body.status;
       }
 

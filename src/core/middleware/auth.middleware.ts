@@ -35,8 +35,30 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     logger.debug(`[Auth:${requestId}] Fetching user data from database for userId: ${decoded.userId}`);
     const user = await db.user.findUnique({
       where: { userId: decoded.userId },
-      // Select only necessary/safe fields
-      select: { userId: true, email: true, role: true, createdAt: true, business: true },
+      select: {
+        userId: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        business: {
+          select: {
+            businessId: true,
+            userId: true,
+            businessName: true,
+            description: true,
+            address: true,
+            pinCode: true,
+            latitude: true,
+            longitude: true,
+            googleMapsLink: true,
+            createdAt: true,
+            approvedAt: true,
+            approvedBy: true,
+            reviewNote: true,
+            status: true,
+          }
+        }
+      },
     });
 
     if (!user) {

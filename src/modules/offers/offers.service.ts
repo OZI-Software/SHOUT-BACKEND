@@ -52,10 +52,6 @@ class OfferService {
                                 pinCode: true,
                                 latitude: true,
                                 longitude: true,
-                                openingTime: true,
-                                closingTime: true,
-                                workingDays: true,
-                                isOpen24Hours: true,
                             }
                         }
                     }
@@ -74,10 +70,6 @@ class OfferService {
             businessPinCode: business?.pinCode,
             businessLatitude: business?.latitude,
             businessLongitude: business?.longitude,
-            businessOpeningTime: business?.openingTime,
-            businessClosingTime: business?.closingTime,
-            businessWorkingDays: business?.workingDays,
-            businessIsOpen24Hours: business?.isOpen24Hours,
         };
     }
 
@@ -100,24 +92,67 @@ class OfferService {
     }
 
     public async findNearbyActiveOffers(latitude: number, longitude: number, radiusMeters: number): Promise<any[]> {
-        const R = 6371000;
-        const nearbyOffers = await db.$queryRaw<any[]>`
-      SELECT o.*, b."businessId", b."businessName", b."address" AS "businessAddress",
-        b."pinCode" AS "businessPinCode", b."latitude" AS "businessLatitude",
-        b."longitude" AS "businessLongitude", b."openingTime" AS "businessOpeningTime",
-        b."closingTime" AS "businessClosingTime", b."workingDays" AS "businessWorkingDays",
-        b."isOpen24Hours" AS "businessIsOpen24Hours",
-        (${R} * acos(least(1, cos(radians(${latitude})) * cos(radians(b."latitude")) *
-        cos(radians(b."longitude") - radians(${longitude})) + 
-        sin(radians(${latitude})) * sin(radians(b."latitude"))))) AS "distanceInMeters"
-      FROM "offers" o
-      INNER JOIN "businesses" b ON b."userId" = o."creatorId"
-      WHERE o."status" = 'ACTIVE' AND o."endDateTime" > NOW()
-      AND (${R} * acos(least(1, cos(radians(${latitude})) * cos(radians(b."latitude")) *
-        cos(radians(b."longitude") - radians(${longitude})) + 
-        sin(radians(${latitude})) * sin(radians(b."latitude"))))) <= ${radiusMeters}
-      ORDER BY o."startDateTime" DESC
-    `;
+        const R = 6371000; // Earth radius in meters
+
+        // Fetch active offers with their business location data using Prisma relations
+        const activeOffers = await db.offer.findMany({
+            where: {
+                status: 'ACTIVE',
+                endDateTime: { gt: new Date() },
+            },
+            include: {
+                creator: {
+                    select: {
+                        business: {
+                            select: {
+                                businessId: true,
+                                businessName: true,
+                                address: true,
+                                pinCode: true,
+                                latitude: true,
+                                longitude: true,
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { startDateTime: 'desc' },
+        });
+
+        // Compute Haversine distance for each offer and filter by radius
+        const toRadians = (deg: number) => (deg * Math.PI) / 180;
+        const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+            const dLat = toRadians(lat2 - lat1);
+            const dLon = toRadians(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        };
+
+        const nearbyOffers = activeOffers
+            .map((offer) => {
+                const business = offer.creator.business;
+                const hasCoords = typeof business?.latitude === 'number' && typeof business?.longitude === 'number';
+                const distanceInMeters = hasCoords
+                    ? haversine(latitude, longitude, business!.latitude, business!.longitude)
+                    : undefined;
+                return {
+                    ...offer,
+                    businessId: business?.businessId,
+                    businessName: business?.businessName,
+                    businessAddress: business?.address,
+                    businessPinCode: business?.pinCode,
+                    businessLatitude: business?.latitude,
+                    businessLongitude: business?.longitude,
+                    // Optional fields omitted due to DB column mismatch
+                    distanceInMeters,
+                };
+            })
+            .filter((offer) => offer.distanceInMeters !== undefined && offer.distanceInMeters <= radiusMeters);
+
         return nearbyOffers;
     }
 

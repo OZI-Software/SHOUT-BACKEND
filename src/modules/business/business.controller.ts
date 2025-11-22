@@ -1,6 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import { businessService } from './business.service.js';
-import { offerService } from '../offers/offers.service.ts.backup';
+import { offerService } from '../offers/offers.service.js';
 import { HttpError } from '../../config/index.js';
 import type { AuthRequest } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';

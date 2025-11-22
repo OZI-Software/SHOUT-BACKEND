@@ -10,18 +10,37 @@ interface BusinessUpdateDto {
   pinCode?: number;
   latitude?: number;
   longitude?: number;
-  googleMapLink?: string;
+  googleMapsLink?: string;
 }
+
+// Returned shape omits business-hours fields that are not present in DB columns
+type BusinessSafe = Omit<Business, 'openingTime' | 'closingTime' | 'workingDays' | 'isOpen24Hours'>;
 
 class BusinessService {
   /**
    * Finds the business profile associated with a given user ID.
    */
-  public async findBusinessByUserId(userId: string): Promise<Business> {
+  public async findBusinessByUserId(userId: string): Promise<BusinessSafe> {
     logger.debug(`[Business] Looking up business profile for userId: ${userId}`);
     
     const business = await db.business.findUnique({
       where: { userId },
+      select: {
+        businessId: true,
+        userId: true,
+        businessName: true,
+        description: true,
+        address: true,
+        pinCode: true,
+        googleMapsLink: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        status: true,
+        approvedAt: true,
+        approvedBy: true,
+        reviewNote: true,
+      },
     });
 
     if (!business) {
@@ -36,7 +55,7 @@ class BusinessService {
   /**
    * Updates an existing business profile.
    */
-  public async updateBusiness(userId: string, dto: BusinessUpdateDto): Promise<Business> {
+  public async updateBusiness(userId: string, dto: BusinessUpdateDto): Promise<BusinessSafe> {
     logger.info(`[Business] Updating business profile for userId: ${userId}`);
     logger.debug(`[Business] Update data:`, dto);
     
@@ -44,6 +63,22 @@ class BusinessService {
       const updatedBusiness = await db.business.update({
         where: { userId },
         data: dto,
+        select: {
+          businessId: true,
+          userId: true,
+          businessName: true,
+          description: true,
+          address: true,
+          pinCode: true,
+          googleMapsLink: true,
+          latitude: true,
+          longitude: true,
+          createdAt: true,
+          status: true,
+          approvedAt: true,
+          approvedBy: true,
+          reviewNote: true,
+        },
       });
       
       logger.info(`[Business] Business profile updated successfully for userId: ${userId}, businessId: ${updatedBusiness.businessId}`);
@@ -62,10 +97,26 @@ class BusinessService {
   /**
    * Find business profile by businessId.
    */
-  public async findBusinessByBusinessId(businessId: string): Promise<Business> {
+  public async findBusinessByBusinessId(businessId: string): Promise<BusinessSafe> {
     logger.info(`[Business] Fetching business by businessId: ${businessId}`)
     const biz = await db.business.findUnique({
       where: { businessId },
+      select: {
+        businessId: true,
+        userId: true,
+        businessName: true,
+        description: true,
+        address: true,
+        pinCode: true,
+        googleMapsLink: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        status: true,
+        approvedAt: true,
+        approvedBy: true,
+        reviewNote: true,
+      },
     })
     if (!biz) {
       throw new HttpError('Business not found', 404)
