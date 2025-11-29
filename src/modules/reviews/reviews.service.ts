@@ -7,10 +7,17 @@ class ReviewsService {
             throw new HttpError('Rating must be between 1 and 5', 400);
         }
 
-        // Check if user already reviewed this business? 
-        // Usually one review per user per business is a good rule, but user didn't specify.
-        // I'll allow multiple for now or maybe upsert?
-        // Let's just create a new one.
+        // Check if user already reviewed this business
+        const existingReview = await db.review.findFirst({
+            where: {
+                userId,
+                businessId,
+            },
+        });
+
+        if (existingReview) {
+            throw new HttpError('You have already reviewed this business', 400);
+        }
 
         const review = await db.review.create({
             data: {
@@ -23,7 +30,8 @@ class ReviewsService {
                 user: {
                     select: {
                         userId: true,
-                        email: true, // Maybe show name if we had it, but email is all we have
+                        email: true,
+                        name: true,
                     },
                 },
             },
@@ -40,6 +48,23 @@ class ReviewsService {
                     select: {
                         userId: true,
                         email: true,
+                        name: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        return reviews;
+    }
+
+    public async getMyReviews(userId: string) {
+        const reviews = await db.review.findMany({
+            where: { userId },
+            include: {
+                business: {
+                    select: {
+                        businessId: true,
+                        businessName: true,
                     },
                 },
             },

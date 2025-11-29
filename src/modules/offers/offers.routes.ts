@@ -14,7 +14,10 @@ class OffersRoutes {
   private initializeRoutes() {
     // Public route for users to see active offers near them
     this.router.get('/nearby', offerController.getNearbyOffers);
-    
+
+    // Public route to search offers
+    this.router.get('/search', offerController.searchOffers);
+
     // Authenticated route: Get offers created by current user
     // Place BEFORE the dynamic ":id" route to avoid shadowing
     this.router.get(
@@ -35,7 +38,7 @@ class OffersRoutes {
     // Update existing offer (NEW ROUTE)
     // Allow optional image replacement via file upload
     this.router.put('/:id', imageUpload.single('file'), offerController.updateOffer); // Using PUT for full replacement/update
-    
+
     // Repost an existing offer
     this.router.post('/:id/repost', offerController.repostOffer);
 

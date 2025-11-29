@@ -28,6 +28,16 @@ class ReviewsController {
             next(error);
         }
     };
+
+    public getMyReviews = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            if (!req.user) throw new HttpError('Not authenticated', 401);
+            const reviews = await reviewsService.getMyReviews(req.user.userId);
+            res.status(200).json({ status: 'success', data: reviews });
+        } catch (error) {
+            next(error);
+        }
+    };
 }
 
 export const reviewsController = new ReviewsController();

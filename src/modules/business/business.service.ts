@@ -11,10 +11,14 @@ interface BusinessUpdateDto {
   latitude?: number;
   longitude?: number;
   googleMapsLink?: string;
+  openingTime?: string;
+  closingTime?: string;
+  workingDays?: string;
+  isOpen24Hours?: boolean;
 }
 
-// Returned shape omits business-hours fields that are not present in DB columns
-type BusinessSafe = Omit<Business, 'openingTime' | 'closingTime' | 'workingDays' | 'isOpen24Hours'>;
+// Returned shape includes business-hours fields
+type BusinessSafe = Business;
 
 class BusinessService {
   /**
@@ -41,6 +45,10 @@ class BusinessService {
         approvedBy: true,
         reviewNote: true,
         abcCode: true,
+        openingTime: true,
+        closingTime: true,
+        workingDays: true,
+        isOpen24Hours: true,
       },
     });
 
@@ -80,6 +88,10 @@ class BusinessService {
           approvedBy: true,
           reviewNote: true,
           abcCode: true,
+          openingTime: true,
+          closingTime: true,
+          workingDays: true,
+          isOpen24Hours: true,
         },
       });
 
@@ -119,6 +131,10 @@ class BusinessService {
         approvedBy: true,
         reviewNote: true,
         abcCode: true,
+        openingTime: true,
+        closingTime: true,
+        workingDays: true,
+        isOpen24Hours: true,
       },
     })
     if (!biz) {
@@ -133,32 +149,6 @@ class BusinessService {
    */
   public async findNearbyBusinesses(latitude: number, longitude: number, radiusMeters: number): Promise<Business[]> {
     logger.info(`[Business] Finding nearby businesses - lat: ${latitude}, lng: ${longitude}, radius: ${radiusMeters}m`);
-
-    // if (!process.env.DATABASE_URL?.includes('postgis')) {
-    //     logger.warn('[Business] PostGIS not detected/configured. Falling back to basic query.');
-    //     // Fallback or throw error if Geo-filtering is mandatory
-    //     return [];
-    // }
-
-    // logger.debug(`[Business] Using PostGIS for geo-filtering query`);
-
-    // // Raw SQL for PostGIS distance calculation and filtering
-    // // ST_DWithin checks if two geometries are within a specified distance
-    // const nearbyBusinesses = await db.$queryRaw<Business[]>`
-    //   SELECT 
-    //     *,
-    //     ST_Distance(
-    //       ST_MakePoint(longitude, latitude)::geography, 
-    //       ST_MakePoint(${longitude}, ${latitude})::geography
-    //     ) as distanceMeters
-    //   FROM "businesses"
-    //   WHERE ST_DWithin(
-    //     ST_MakePoint(longitude, latitude)::geography,
-    //     ST_MakePoint(${longitude}, ${latitude})::geography,
-    //     ${radiusMeters}
-    //   )
-    //   ORDER BY distanceMeters
-    // `;
 
     // Fallback SQL-based calculation using Haversine for distance
 
@@ -187,10 +177,51 @@ class BusinessService {
         )
       ) <= ${radiusMeters}
       ORDER BY distanceMeters
-    `;
+      `;
 
     logger.info(`[Business] Found ${nearbyBusinesses.length} businesses within ${radiusMeters}m radius`);
     return nearbyBusinesses;
+  }
+
+  /**
+   * Search businesses by name or description
+   */
+  public async searchBusinesses(query: string): Promise<BusinessSafe[]> {
+    logger.info(`[Business] Searching businesses with query: ${query}`);
+
+    const businesses = await db.business.findMany({
+      where: {
+        OR: [
+          { businessName: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } },
+        ],
+        status: 'APPROVED'
+      },
+      select: {
+        businessId: true,
+        userId: true,
+        businessName: true,
+        description: true,
+        address: true,
+        pinCode: true,
+        googleMapsLink: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        status: true,
+        approvedAt: true,
+        approvedBy: true,
+        reviewNote: true,
+        abcCode: true,
+        openingTime: true,
+        closingTime: true,
+        workingDays: true,
+        isOpen24Hours: true,
+      },
+      take: 20
+    });
+
+    return businesses;
   }
 }
 

@@ -10,4 +10,7 @@ router.get('/:businessId', reviewsController.getReviews);
 // Add review requires auth
 router.post('/:businessId', authMiddleware, reviewsController.addReview);
 
+// Get my reviews
+router.get('/me/list', authMiddleware, reviewsController.getMyReviews);
+
 export const reviewsRoutes = router;

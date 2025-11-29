@@ -118,6 +118,21 @@ class OfferController {
     }
   };
 
+  // GET /api/v1/offers/search?q=...
+  public searchOffers = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        throw new HttpError('Search query is required', 400);
+      }
+
+      const offers = await offerService.searchOffers(q);
+      res.status(200).json({ status: 'success', count: offers.length, data: offers });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /**
    * DELETE /api/v1/offers/:id
    * Deletes an offer created by the authenticated user.

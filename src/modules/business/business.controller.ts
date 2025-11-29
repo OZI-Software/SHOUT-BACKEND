@@ -58,6 +58,21 @@ class BusinessController {
     }
   };
 
+  // GET /api/v1/business/search?q=...
+  public searchBusinesses = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        throw new HttpError('Search query is required', 400);
+      }
+
+      const businesses = await businessService.searchBusinesses(q);
+      res.status(200).json({ status: 'success', count: businesses.length, data: businesses });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // GET /api/v1/business/:id
   public getBusinessById = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {

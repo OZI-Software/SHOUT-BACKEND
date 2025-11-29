@@ -201,6 +201,55 @@ class OfferService {
         }
         await db.offer.delete({ where: { id: offerId } });
     }
+
+    /**
+     * Search offers by title or description
+     */
+    public async searchOffers(query: string): Promise<any[]> {
+        logger.info(`[Offers] Searching offers with query: ${query}`);
+
+        const offers = await db.offer.findMany({
+            where: {
+                OR: [
+                    { title: { contains: query, mode: 'insensitive' } },
+                    { description: { contains: query, mode: 'insensitive' } },
+                ],
+                status: 'ACTIVE',
+                endDateTime: { gt: new Date() },
+            },
+            include: {
+                creator: {
+                    select: {
+                        business: {
+                            select: {
+                                businessId: true,
+                                businessName: true,
+                                address: true,
+                                pinCode: true,
+                                latitude: true,
+                                longitude: true,
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { startDateTime: 'desc' },
+            take: 20
+        });
+
+        return offers.map((offer) => {
+            const business = offer.creator.business;
+            return {
+                ...offer,
+                businessId: business?.businessId,
+                businessName: business?.businessName,
+                businessAddress: business?.address,
+                businessPinCode: business?.pinCode,
+                businessLatitude: business?.latitude,
+                businessLongitude: business?.longitude,
+            };
+        });
+    }
 }
 
 export const offerService = new OfferService();

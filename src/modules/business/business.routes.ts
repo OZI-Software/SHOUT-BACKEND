@@ -14,6 +14,9 @@ class BusinessRoutes {
     // Public route to find businesses near a location (no auth needed)
     this.router.get('/nearby', businessController.getNearbyBusinesses);
 
+    // Public route to search businesses
+    this.router.get('/search', businessController.searchBusinesses);
+
     // Get and Update current user's business profile (requires ADMIN role)
     this.router.get('/me', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), businessController.getMyBusinessProfile);
     this.router.put('/me', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), businessController.updateMyBusinessProfile);
