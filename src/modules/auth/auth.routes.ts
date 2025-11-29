@@ -9,6 +9,7 @@ class AuthRoutes {
   }
 
   private initializeRoutes() {
+    this.router.post('/send-otp', authController.sendOtp);
     this.router.post('/register', authController.register);
     this.router.post('/login', authController.login);
     this.router.post('/password-reset/request', authController.requestPasswordReset);

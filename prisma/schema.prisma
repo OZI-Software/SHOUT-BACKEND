@@ -12,6 +12,7 @@ enum UserRole {
   SUPER_ADMIN
   ADMIN
   STAFF
+  CUSTOMER
 }
 
 // Enum for offer status, based on the 'offers' table design
@@ -34,7 +35,13 @@ model User {
   userId String @id @default(uuid())
 
   // Corresponds to email (string)
-  email String @unique
+  email String? @unique
+  
+  // Mobile number for login
+  mobileNumber String? @unique
+
+  // User's full name
+  name String?
 
   // Securely stored bcrypt password hash
   // Optional because businesses might register without a password initially (waiting for approval)
@@ -52,7 +59,12 @@ model User {
   business Business?
 
   // 1-to-many relation for an Admin creating offers
+  // 1-to-many relation for an Admin creating offers
   createdOffers Offer[] @relation("AdminOffers")
+
+  // Customer relations
+  favorites FavoriteOffer[]
+  reviews   Review[]
 
   @@map("users")
 }
@@ -100,6 +112,12 @@ model Business {
   //   ST_MakePoint(longitude, latitude)::geography
   // );
 
+  // ABC Code for business registration
+  abcCode String?
+
+  // Reviews
+  reviews Review[]
+
   @@index([latitude, longitude, businessId])
   @@index([status])
   @@map("businesses")
@@ -146,4 +164,47 @@ model Offer {
   @@index([repostedFromOfferId])
   @@index([status, startDateTime, endDateTime])
   @@map("offers")
+  
+  // Relations
+  favoritedBy FavoriteOffer[]
+}
+
+model FavoriteOffer {
+  userId  String
+  offerId String
+  user    User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  offer   Offer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, offerId])
+  @@map("favorite_offers")
+}
+
+model Review {
+  id String @id @default(uuid())
+  
+  userId String
+  user   User   @relation(fields: [userId], references: [userId])
+  
+  businessId String
+  business   Business @relation(fields: [businessId], references: [businessId], onDelete: Cascade)
+  
+  rating Int // 1-5
+  comment String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([businessId])
+  @@map("reviews")
+}
+
+model OtpVerification {
+  id        String   @id @default(uuid())
+  email     String
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@map("otp_verifications")
 }

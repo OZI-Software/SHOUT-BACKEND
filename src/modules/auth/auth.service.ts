@@ -1,5 +1,5 @@
 ﻿import { db } from '../../core/db/prisma.js';
-import type { User } from '@prisma/client';
+import { UserRole, BusinessStatus, type User, Prisma } from '@prisma/client';
 import { HttpError } from '../../config/index.js';
 import type { JwtPayload } from '../../config/index.js';
 import bcrypt from 'bcryptjs';
@@ -10,6 +10,7 @@ import { emailService } from '../../core/email/email.service.js';
 
 export interface RegisterDto {
   email: string;
+  name?: string;
   password?: string;
   isBusiness: boolean;
   businessName?: string;
@@ -19,6 +20,7 @@ export interface RegisterDto {
   latitude?: number;
   longitude?: number;
   googleMapsLink?: string;
+  abcCode?: string;
   openingTime?: string;
   closingTime?: string;
   workingDays?: string;
@@ -33,31 +35,111 @@ export interface LoginDto {
 class AuthService {
   private readonly saltRounds = 10;
 
-  public async register(dto: RegisterDto): Promise<string | null> {
-    const { email, password, isBusiness, ...businessData } = dto;
-    logger.info('[AuthService] Registering user with email:', email);
-
-    const existingUser = await db.user.findUnique({ where: { email } });
-    if (existingUser) {
+  public async sendOtp(email: string, mobileNumber?: string): Promise<void> {
+    // Check if user already exists
+    const existingUserByEmail = await db.user.findUnique({ where: { email } });
+    if (existingUserByEmail) {
       throw new HttpError('User already exists with this email', 409);
+    }
+
+    if (mobileNumber) {
+      const existingUserByMobile = await db.user.findUnique({ where: { mobileNumber } });
+      if (existingUserByMobile) {
+        throw new HttpError('User already exists with this mobile number', 409);
+      }
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store in DB (upsert)
+    const existing = await db.otpVerification.findFirst({ where: { email } });
+    if (existing) {
+      await db.otpVerification.update({
+        where: { id: existing.id },
+        data: { otp, expiresAt },
+      });
+    } else {
+      await db.otpVerification.create({
+        data: { email, otp, expiresAt },
+      });
+    }
+
+    // Send email
+    await emailService.sendOtp(email, otp);
+    logger.info('[AuthService] Sent OTP to:', email);
+  }
+
+  public async register(dto: RegisterDto & { mobileNumber?: string, otp?: string }): Promise<string | null> {
+    const { email, mobileNumber, password, isBusiness, abcCode, name, otp, ...businessData } = dto;
+    logger.info('[AuthService] Registering user:', { email, mobileNumber, isBusiness });
+
+    // Email is strictly required for everyone now (as per requirement)
+    if (!email) {
+      throw new HttpError('Email is required', 400);
+    }
+
+    if (email) {
+      const existingUser = await db.user.findUnique({ where: { email } });
+      if (existingUser) throw new HttpError('User already exists with this email', 409);
+    }
+
+    if (mobileNumber) {
+      const existingUser = await db.user.findUnique({ where: { mobileNumber } });
+      if (existingUser) throw new HttpError('User already exists with this mobile number', 409);
+    }
+
+    // OTP Verification for Customers
+    if (!isBusiness) {
+      if (!otp) throw new HttpError('OTP is required for customer registration', 400);
+
+      const verification = await db.otpVerification.findFirst({ where: { email } });
+      if (!verification || verification.otp !== otp) {
+        throw new HttpError('Invalid OTP', 400);
+      }
+      if (verification.expiresAt < new Date()) {
+        throw new HttpError('OTP has expired. Please request a new one.', 400);
+      }
+
+      // Cleanup OTP
+      await db.otpVerification.delete({ where: { id: verification.id } });
     }
 
     let hashedPassword: string | null = null;
     if (password) {
       hashedPassword = await bcrypt.hash(password, this.saltRounds);
     } else if (!isBusiness) {
-      throw new HttpError('Password is required for staff accounts', 400);
+      throw new HttpError('Password is required for customer accounts', 400);
     }
 
-    const role = isBusiness ? 'ADMIN' : 'STAFF';
+    if (!isBusiness) {
+      if (!name) throw new HttpError('Name is required for customer accounts', 400);
+      if (!mobileNumber) throw new HttpError('Mobile number is required for customer accounts', 400);
+      if (!/^\d{10}$/.test(mobileNumber)) throw new HttpError('Mobile number must be 10 digits', 400);
+    }
+
+    // Default to CUSTOMER if not business
+    const role: UserRole = isBusiness ? UserRole.ADMIN : UserRole.CUSTOMER;
 
     try {
       const newUser = await db.$transaction(async (tx) => {
+        const userData: Prisma.UserCreateInput = {
+          email,
+          mobileNumber: mobileNumber ?? null,
+          role,
+          passwordHash: hashedPassword,
+          name: name ?? null,
+        };
+
         const user = await tx.user.create({
-          data: { email, role, passwordHash: hashedPassword },
+          data: userData,
         });
 
         if (isBusiness) {
+          if (!abcCode) {
+            throw new HttpError('ABC Code is required for business registration', 400);
+          }
           logger.info('[AuthService] Creating business profile for user:', user.userId);
           const missing: string[] = [];
           if (!businessData.businessName) missing.push('businessName');
@@ -100,14 +182,15 @@ class AuthService {
               latitude: Number(businessData.latitude),
               longitude: Number(businessData.longitude),
               googleMapsLink: String(businessData.googleMapsLink),
-              status: 'PENDING',
+              status: BusinessStatus.PENDING,
               userId: user.userId,
+              abcCode: abcCode ?? null,
               // Business timings
               isOpen24Hours: is24,
               openingTime: is24 ? null : String(businessData.openingTime),
               closingTime: is24 ? null : String(businessData.closingTime),
               workingDays: is24 ? null : String(businessData.workingDays),
-            },
+            } as Prisma.BusinessUncheckedCreateInput,
           });
         }
         return user;
@@ -128,9 +211,13 @@ class AuthService {
     }
   }
 
-  public async login(dto: LoginDto): Promise<string> {
-    const user = await db.user.findUnique({
-      where: { email: dto.email },
+  public async login(dto: LoginDto & { mobileNumber?: string }): Promise<string> {
+    // Allow login with email OR mobileNumber (passed as email field or separate field)
+    // For simplicity, let's assume the frontend sends 'email' field which can be email or mobile
+    const identifier = dto.email;
+
+    let user = await db.user.findUnique({
+      where: { email: identifier },
       select: {
         userId: true,
         email: true,
@@ -139,6 +226,20 @@ class AuthService {
         business: { select: { status: true } }
       },
     });
+
+    if (!user) {
+      // Try finding by mobile number
+      user = await db.user.findUnique({
+        where: { mobileNumber: identifier },
+        select: {
+          userId: true,
+          email: true,
+          role: true,
+          passwordHash: true,
+          business: { select: { status: true } }
+        },
+      });
+    }
 
     if (!user) throw new HttpError('Invalid credentials', 401);
 
@@ -161,10 +262,10 @@ class AuthService {
     return this.generateToken(user);
   }
 
-  private generateToken(user: Pick<User, 'userId' | 'email' | 'role'>): string {
+  private generateToken(user: Pick<User, 'userId' | 'role'> & { email: string | null }): string {
     const payload: JwtPayload = {
       userId: user.userId,
-      email: user.email,
+      email: user.email ?? '',
       role: user.role,
     };
     return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
@@ -172,7 +273,7 @@ class AuthService {
 
   public async requestPasswordReset(email: string): Promise<void> {
     const user = await db.user.findUnique({ where: { email }, select: { userId: true, email: true } });
-    if (!user) return;
+    if (!user || !user.email) return;
     const token = jwt.sign({ type: 'reset', userId: user.userId, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
     const resetUrl = `${FRONTEND_BASE_URL}/auth/reset?token=${encodeURIComponent(token)}`;
     await emailService.sendPasswordReset(user.email, resetUrl);

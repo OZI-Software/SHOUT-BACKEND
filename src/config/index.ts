@@ -15,10 +15,10 @@ export interface AuthRequest extends Request {
 
 // Custom error type for better error handling
 export class HttpError extends Error {
-  public status: number;
-  constructor(message: string, status: number = 500) {
+  public statusCode: number;
+  constructor(message: string, statusCode: number = 500) {
     super(message);
-    this.status = status;
+    this.statusCode = statusCode;
     // Set the prototype explicitly.
     Object.setPrototypeOf(this, HttpError.prototype);
   }

@@ -38,7 +38,10 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
       select: {
         userId: true,
         email: true,
+        mobileNumber: true,
+        passwordHash: true,
         role: true,
+        name: true,
         createdAt: true,
         business: {
           select: {
@@ -69,13 +72,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     logger.info(`[Auth:${requestId}] Authentication successful for user: ${user.email} (${user.role})`);
 
     // 3. Attach user object to the request
-    req.user = {
-      userId: user.userId,
-      email: user.email,
-      passwordHash: '', // Not exposed by Prisma select, satisfy type
-      role: user.role,
-      createdAt: user.createdAt,
-    };
+    req.user = user;
     next();
   } catch (error: any) {
     // Handle JWT errors (e.g., expired, invalid signature)

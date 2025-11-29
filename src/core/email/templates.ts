@@ -115,3 +115,16 @@ export function passwordResetTemplate(data: { resetUrl: string }) {
   `;
   return wrapTemplate(content);
 }
+
+export function otpTemplate(data: { otp: string }) {
+  const content = `
+    <h2 style="margin: 0 0 20px; font-size: 24px; color: #111;">Verify your email</h2>
+    <p style="margin-bottom: 16px;">Use the code below to verify your email address and complete your registration.</p>
+    <div style="background-color: #f3f4f6; padding: 24px; border-radius: 8px; text-align: center; margin: 24px 0;">
+      <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #f97316;">${data.otp}</span>
+    </div>
+    <p style="margin-bottom: 24px;">This code will expire in 10 minutes.</p>
+    <p style="font-size: 14px; color: #666;">If you didn't request this code, please ignore this email.</p>
+  `;
+  return wrapTemplate(content);
+}

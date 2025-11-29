@@ -1,7 +1,7 @@
 // Import dependencies
 import { brevoTransacApi, brevoSender } from './brevo.client.js';
 import { SendSmtpEmail } from '@getbrevo/brevo';
-import { businessApprovedTemplate, businessRejectedTemplate, passwordResetTemplate } from './templates.js';
+import { businessApprovedTemplate, businessRejectedTemplate, passwordResetTemplate, otpTemplate } from './templates.js';
 import { logger } from '../utils/logger.js';
 
 // Explicit type for recipient(s) -- Brevo expects: { email: string }[]
@@ -51,6 +51,14 @@ export const emailService = {
     return send({
       to: [{ email: toEmail }],
       subject: 'Reset your password',
+      htmlContent: html,
+    });
+  },
+  async sendOtp(toEmail: string, otp: string) {
+    const html = otpTemplate({ otp });
+    return send({
+      to: [{ email: toEmail }],
+      subject: 'Your verification code',
       htmlContent: html,
     });
   },
