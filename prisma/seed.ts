@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -10,11 +10,11 @@ async function main() {
 
     const user = await prisma.user.upsert({
         where: { email },
-        update: { role: 'SUPER_ADMIN' }, // Ensure role is SUPER_ADMIN if exists
+        update: { role: UserRole.SUPER_ADMIN }, // Ensure role is SUPER_ADMIN if exists
         create: {
             email,
             passwordHash: hashedPassword,
-            role: 'SUPER_ADMIN',
+            role: UserRole.SUPER_ADMIN,
         },
     });
 
