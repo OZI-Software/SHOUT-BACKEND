@@ -11,14 +11,14 @@ class AdminController {
                 approvedBusinesses,
                 rejectedBusinesses,
                 totalOffers,
-                totalUsers
+                totalCustomers
             ] = await Promise.all([
                 db.user.count({ where: { role: 'ADMIN' } }),
                 db.user.count({ where: { role: 'ADMIN', business: { status: 'PENDING' } } }),
                 db.user.count({ where: { role: 'ADMIN', business: { status: 'APPROVED' } } }),
                 db.user.count({ where: { role: 'ADMIN', business: { status: 'REJECTED' } } }),
                 db.offer.count(),
-                db.user.count()
+                db.user.count({ where: { role: 'CUSTOMER' } })
             ]);
 
             res.status(200).json({
@@ -29,7 +29,7 @@ class AdminController {
                     approvedBusinesses,
                     rejectedBusinesses,
                     totalOffers,
-                    totalUsers
+                    totalCustomers
                 }
             });
         } catch (error) {
