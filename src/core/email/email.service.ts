@@ -46,6 +46,16 @@ export const emailService = {
       htmlContent: html,
     });
   },
+  async sendBusinessApplicationReceived(toEmail: string, businessName: string) {
+    // Import dynamically to avoid circular dependency if any, or just use the imported one
+    // Assuming template is imported at top
+    const html = require('./templates.js').businessApplicationReceivedTemplate({ businessName });
+    return send({
+      to: [{ email: toEmail }],
+      subject: `Application received for "${businessName}"`,
+      htmlContent: html,
+    });
+  },
   async sendPasswordReset(toEmail: string, resetUrl: string) {
     const html = passwordResetTemplate({ resetUrl });
     return send({

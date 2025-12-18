@@ -128,3 +128,15 @@ export function otpTemplate(data: { otp: string }) {
   `;
   return wrapTemplate(content);
 }
+
+export function businessApplicationReceivedTemplate(data: { businessName: string }) {
+  const content = `
+    <h2 style="margin: 0 0 20px; font-size: 24px; color: #111;">Application Received</h2>
+    <p style="margin-bottom: 16px;">Hi there,</p>
+    <p style="margin-bottom: 16px;">Thanks for registering <strong>${data.businessName}</strong> with SHOUT!</p>
+    <p style="margin-bottom: 16px;">We have received your application and it is currently under review.</p>
+    <p style="margin-bottom: 24px;">You will receive another email once your business is approved, at which point you can set your password and access the dashboard.</p>
+    <p style="margin-top: 24px; font-size: 14px; color: #666;">If you have any questions, feel free to reply to this email.</p>
+  `;
+  return wrapTemplate(content);
+}

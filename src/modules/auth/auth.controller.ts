@@ -21,8 +21,14 @@ class AuthController {
       // The service layer handles validation for required business fields if isBusiness is true
       const token = await authService.register(req.body);
 
-      await authService.requestPasswordReset(email);
-      res.status(200).json({ status: 'success', message: 'If the email exists, a reset link has been sent.' });
+      if (isBusiness) {
+        const { emailService } = await import('../../core/email/email.service.js');
+        await emailService.sendBusinessApplicationReceived(email, req.body.businessName);
+        res.status(200).json({ status: 'success', message: 'Application received. Please check your email.' });
+      } else {
+        await authService.requestPasswordReset(email);
+        res.status(200).json({ status: 'success', message: 'If the email exists, a reset link has been sent.' });
+      }
     } catch (error) {
       next(error);
     }
