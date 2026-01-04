@@ -131,6 +131,7 @@ model Business {
   // Reviews
   reviews     Review[]
   favoritedBy FavoriteBusiness[]
+  analyticsEvents AnalyticsEvent[]
 
   @@index([latitude, longitude, businessId])
   @@index([status])
@@ -195,6 +196,7 @@ model Offer {
   // Relations
   favoritedBy FavoriteOffer[]
   acceptances OfferAcceptance[]
+  analyticsEvents AnalyticsEvent[]
 
   @@index([creatorId])
   @@index([repostedFromOfferId])
@@ -270,6 +272,30 @@ model OtpVerification {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@index([email])
   @@map("otp_verifications")
+}
+
+enum AnalyticsEventType {
+  OFFER_IMPRESSION
+  OFFER_VIEW
+  BUSINESS_VIEW
+}
+
+model AnalyticsEvent {
+  id        String             @id @default(uuid())
+  type      AnalyticsEventType
+  
+  offerId   String?
+  offer     Offer?             @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  
+  businessId String?
+  business   Business?         @relation(fields: [businessId], references: [businessId], onDelete: Cascade)
+  
+  userId    String?            // Optional: unique reach
+  
+  createdAt DateTime           @default(now())
+  
+  @@index([type, offerId, createdAt])
+  @@index([type, businessId, createdAt])
+  @@map("analytics_events")
 }

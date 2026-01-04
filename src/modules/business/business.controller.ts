@@ -29,7 +29,11 @@ class BusinessController {
         throw new HttpError('Forbidden: Only business owners can update their profile', 403);
       }
 
-      const updatedBusiness = await businessService.updateBusiness(req.user.userId, req.body);
+      // Filter out restricted fields for Business Admin
+      // They CANNOT update: abn, email, mobileNumber (email/mobile are on User model anyway)
+      const { abn, ...allowedUpdates } = req.body;
+
+      const updatedBusiness = await businessService.updateBusiness(req.user.userId, allowedUpdates);
 
       res.status(200).json({ status: 'success', data: updatedBusiness });
     } catch (error) {

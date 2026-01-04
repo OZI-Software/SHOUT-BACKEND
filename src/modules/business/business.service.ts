@@ -118,6 +118,48 @@ class BusinessService {
   }
 
   /**
+   * Updates an existing business profile by businessId (for Super Admin).
+   */
+  public async updateBusinessByBusinessId(businessId: string, dto: BusinessUpdateDto): Promise<BusinessSafe> {
+    logger.info(`[Business] Updating business profile for businessId: ${businessId}`);
+
+    try {
+      const updatedBusiness = await db.business.update({
+        where: { businessId },
+        data: dto,
+        select: {
+          businessId: true,
+          userId: true,
+          businessName: true,
+          description: true,
+          address: true,
+          pinCode: true,
+          googleMapsLink: true,
+          latitude: true,
+          longitude: true,
+          createdAt: true,
+          status: true,
+          approvedAt: true,
+          approvedBy: true,
+          reviewNote: true,
+          abcCode: true,
+          openingTime: true,
+          closingTime: true,
+          workingDays: true,
+          isOpen24Hours: true,
+          abn: true,
+          category: true,
+          images: true,
+        },
+      });
+      return updatedBusiness;
+    } catch (error) {
+      logger.error(`[Business] Error updating business profile for businessId: ${businessId}:`, error);
+      throw new HttpError('Failed to update business profile', 500);
+    }
+  }
+
+  /**
    * Find business profile by businessId.
    */
   public async findBusinessByBusinessId(businessId: string): Promise<BusinessSafe> {

@@ -15,6 +15,7 @@ import adminRoutes from './modules/admin/business-approvals.routes.js';
 import superAdminRoutes from './modules/admin/super-admin.routes.js';
 import { favoritesRoutes } from './modules/favorites/favorites.routes.js';
 import { reviewsRoutes } from './modules/reviews/reviews.routes.js';
+import { analyticsRoutes } from './modules/analytics/analytics.routes.js';
 
 export class App {
   public app: Application;
@@ -88,6 +89,9 @@ export class App {
 
     logger.debug('[App] Configuring reviews routes: /api/v1/reviews');
     this.app.use('/api/v1/reviews', reviewsRoutes);
+
+    logger.debug('[App] Configuring analytics routes: /api/v1/analytics');
+    this.app.use('/api/v1/analytics', analyticsRoutes.router);
 
     logger.debug('[App] Routes setup completed');
   }

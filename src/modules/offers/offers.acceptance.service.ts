@@ -148,6 +148,37 @@ class OfferAcceptanceService {
             }
         });
     }
+    /**
+     * Get all acceptances for a specific user.
+     */
+    public async getUserAcceptances(userId: string) {
+        return await (db as any).offerAcceptance.findMany({
+            where: { userId },
+            include: {
+                offer: {
+                    select: {
+                        id: true,
+                        title: true,
+                        endDateTime: true,
+                        imageUrl: true,
+                        status: true,
+                        creator: {
+                            select: {
+                                business: {
+                                    select: {
+                                        businessName: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                acceptedAt: 'desc'
+            }
+        });
+    }
 }
 
 export const offerAcceptanceService = new OfferAcceptanceService();

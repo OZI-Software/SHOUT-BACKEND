@@ -379,6 +379,50 @@ class SuperAdminController {
             next(error);
         }
     };
+
+    /**
+     * PUT /api/v1/admin/businesses/:id
+     * Update any business information (Super Admin)
+     */
+    public updateBusiness = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            if (!req.user) throw new HttpError('Not authenticated', 401);
+            const { id } = req.params;
+
+            // Super Admin can update EVERYTHING, including ABN
+            // Note: Email/Mobile updates on User model are not handled here yet, 
+            // but business fields including 'abn' are passed through.
+
+            // Should we update User fields (email/mobile/name) if provided?
+            // The requirement says "edit all business information, including restricted fields such as ABN, email, and mobile number."
+            // So YES.
+
+            const { email, mobileNumber, name, ...businessData } = req.body;
+
+            // Update Business Fields
+            const updatedBusiness = await (await import('../business/business.service.js')).businessService.updateBusinessByBusinessId(id as string, businessData);
+
+            // Update User Fields if provided
+            if (email || mobileNumber || name) {
+                const currentBusiness = await (await import('../business/business.service.js')).businessService.findBusinessByBusinessId(id as string);
+                if (currentBusiness && currentBusiness.userId) {
+                    await db.user.update({
+                        where: { userId: currentBusiness.userId },
+                        data: {
+                            ...(email && { email }),
+                            ...(mobileNumber && { mobileNumber }),
+                            ...(name && { name })
+                        }
+                    });
+                }
+            }
+
+            res.status(200).json({ status: 'success', data: updatedBusiness });
+        } catch (error) {
+            logger.error('[SuperAdmin] Error updating business:', error);
+            next(error);
+        }
+    };
 }
 
 export const superAdminController = new SuperAdminController();

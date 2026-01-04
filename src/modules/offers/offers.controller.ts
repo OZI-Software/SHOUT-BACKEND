@@ -240,6 +240,17 @@ class OfferController {
       next(error);
     }
   };
+
+  // GET /api/v1/offers/my-acceptances
+  public getMyAcceptances = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+      const acceptances = await offerAcceptanceService.getUserAcceptances(req.user.userId);
+      res.status(200).json({ status: 'success', data: acceptances });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const offerController = new OfferController();
