@@ -40,12 +40,13 @@ class AnalyticsController {
                 throw new HttpError('Forbidden', 403);
             }
 
-            const { period, startDate, endDate } = req.query;
+            const { period, startDate, endDate, businessId } = req.query;
 
             const data = await analyticsService.getOfferStats({
                 period: period as any,
                 startDate: startDate as string,
-                endDate: endDate as string
+                endDate: endDate as string,
+                businessId: businessId as string
             });
 
             res.status(200).json({ status: 'success', count: data.length, data });

@@ -73,6 +73,10 @@ model User {
   reviews            Review[]
   acceptances        OfferAcceptance[]
   favoriteBusinesses FavoriteBusiness[]
+  
+  // New relation for secondary Admins (Multi-Admin support)
+  adminForBusinessId String?
+  adminForBusiness   Business? @relation("BusinessAdmins", fields: [adminForBusinessId], references: [businessId])
 
   @@map("users")
 }
@@ -81,9 +85,12 @@ model Business {
   // Corresponds to PK id (uuid)
   businessId String @id @default(uuid())
 
-  // This is a 1-to-1 relation
+  // This is a 1-to-1 relation (Owner)
   userId String @unique
   user   User   @relation(fields: [userId], references: [userId])
+
+  // Relation for additional admins/staff
+  admins User[] @relation("BusinessAdmins")
 
   // Corresponds to business_name (string)
   businessName String

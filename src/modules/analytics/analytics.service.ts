@@ -15,6 +15,7 @@ interface AnalyticsQueryDto {
     startDate?: string;
     endDate?: string;
     limit?: number;
+    businessId?: string;
 }
 
 export class AnalyticsService {
@@ -45,33 +46,21 @@ export class AnalyticsService {
 
     public async getOfferStats(query: AnalyticsQueryDto) {
         let { startDate, endDate } = this.getDateRange(query);
+        const { businessId } = query;
 
-        logger.info(`[Analytics] Fetching stats from ${startDate} to ${endDate}`);
+        logger.info(`[Analytics] Fetching stats from ${startDate} to ${endDate} ${businessId ? `for business ${businessId}` : ''}`);
 
-        // We need to aggregate events grouped by offerId
-        // Prisma grouping is limited for complex multi-counts in one go, 
-        // so we might need multiple queries or raw query.
-        // However, for "Most Popular", we usually sort by one metric (View or Impression).
-
-        // Let's get all offers first, then attach analytics?
-        // OR aggregate events and then fetch offer details. Aggregating events is better for performance.
-
-        /*
-          Strategy:
-          1. Group AnalyticsEvents by offerId where type=OFFER_VIEW, count.
-          2. Group AnalyticsEvents by offerId where type=OFFER_IMPRESSION, count.
-          3. Group AnalyticsEvents by offerId where type=BUSINESS_VIEW (if linked to offer context? but businessId is usually separate. 
-             Ideally BUSINESS_VIEW is linked to businessId. We can track offer->business click as BUSINESS_VIEW with offerId?).
-             Let's assume the frontend sends offerId for BUSINESS_VIEW if it came from an offer card.
-        */
-
-        const whereClause = {
+        const whereClause: any = {
             createdAt: {
                 gte: startDate,
                 lte: endDate
             },
             offerId: { not: null }
         };
+
+        if (businessId) {
+            whereClause.businessId = businessId;
+        }
 
         // Use groupBy to get counts
         const [views, impressions, bizVisits] = await Promise.all([
@@ -93,6 +82,15 @@ export class AnalyticsService {
         ]);
 
         // Also get favorites (from FavoriteOffer table)
+        // Favorites might not have businessId directly on them, so filtering by businessId for favorites
+        // requires joining with Offer. Prisma groupBy doesn't support relation filtering easily.
+        // For accurate business level favorites, we'd need to fetch favorites that map to offers of this business.
+        // Simplified approach: Get all favorites for offers, then in memory filtering if needed (or assume downstream filtering by offer list).
+        // BUT if we filter the "Output List" by businessId, and map stats to those offers, we get the correct data.
+        // The only issue is if "global total" stats are needed.
+        // We will filter the *Offers* list by businessId. The aggregated stats key-value map can be global, 
+        // as we only look up keys present in the Offer list.
+
         const favorites = await db.favoriteOffer.groupBy({
             by: ['offerId'],
             where: {
@@ -134,16 +132,18 @@ export class AnalyticsService {
         process(favorites, 'favoriteCount');
         process(acceptances, 'acceptanceCount');
 
-        // Fetch Offer Details for the keys in statsMap
-        const offerIds = Array.from(statsMap.keys());
-
-        // Ensure we fetch at least some offers even if no stats (if query demands?)
-        // But usually "Analytics" shows active items.
-        // If we want "All Offers with their stats (0 if none)", we should fetch all relevant offers first.
-        // The user said "analytics of each and every offer".
-        // So we should fetch ALL offers (with pagination?) and map stats to them.
+        // Fetch Offers
+        const offerWhere: any = {};
+        if (businessId) {
+            offerWhere.creator = {
+                business: {
+                    id: businessId
+                }
+            };
+        }
 
         const allOffers = await db.offer.findMany({
+            where: offerWhere,
             select: {
                 id: true,
                 title: true,
@@ -152,7 +152,7 @@ export class AnalyticsService {
                 creator: {
                     select: {
                         business: {
-                            select: { businessName: true }
+                            select: { businessName: true, businessId: true }
                         }
                     }
                 }
@@ -163,6 +163,7 @@ export class AnalyticsService {
             const stats = statsMap.get(offer.id) || {};
             return {
                 ...offer,
+                businessId: offer.creator.business?.businessId,
                 businessName: offer.creator.business?.businessName,
                 metrics: {
                     views: stats.viewCount || 0,

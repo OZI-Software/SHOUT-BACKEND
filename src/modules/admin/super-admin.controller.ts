@@ -159,6 +159,16 @@ class SuperAdminController {
                             }
                         },
                         orderBy: { createdAt: 'desc' }
+                    },
+                    admins: {
+                        select: {
+                            userId: true,
+                            name: true,
+                            email: true,
+                            mobileNumber: true,
+                            role: true,
+                            createdAt: true
+                        }
                     }
                 }
             });
@@ -188,7 +198,8 @@ class SuperAdminController {
                         createdOffers: offersWithStats
                     },
                     averageRating: avgRating,
-                    reviewsCount: business.reviews.length
+                    reviewsCount: business.reviews.length,
+                    admins: business.admins
                 }
             });
         } catch (error) {
@@ -358,12 +369,12 @@ class SuperAdminController {
                     name,
                     passwordHash,
                     role: 'ADMIN',
-                    business: {
+                    adminForBusiness: {
                         connect: { businessId: id as string }
                     }
                 },
                 include: {
-                    business: true
+                    adminForBusiness: true
                 }
             });
 
