@@ -25,6 +25,9 @@ export interface RegisterDto {
   closingTime?: string;
   workingDays?: string;
   isOpen24Hours?: boolean;
+  abn?: string;
+  category?: string;
+  images?: string[];
 }
 
 export interface LoginDto {
@@ -187,9 +190,11 @@ class AuthService {
               abcCode: abcCode ?? null,
               // Business timings
               isOpen24Hours: is24,
-              openingTime: is24 ? null : String(businessData.openingTime),
               closingTime: is24 ? null : String(businessData.closingTime),
               workingDays: is24 ? null : String(businessData.workingDays),
+              abn: businessData.abn ?? null,
+              category: businessData.category ?? null,
+              images: businessData.images ?? [],
             } as Prisma.BusinessUncheckedCreateInput,
           });
         }
@@ -274,9 +279,9 @@ class AuthService {
   public async requestPasswordReset(email: string): Promise<void> {
     const user = await db.user.findUnique({ where: { email }, select: { userId: true, email: true } });
     if (!user || !user.email) return;
-    const token = jwt.sign({ type: 'reset', userId: user.userId, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ type: 'reset', userId: user.userId, email: user.email }, JWT_SECRET, { expiresIn: '30m' });
     const resetUrl = `${FRONTEND_BASE_URL}/auth/reset?token=${encodeURIComponent(token)}`;
-    await emailService.sendPasswordReset(user.email, resetUrl);
+    await emailService.sendPasswordReset(user.email, resetUrl, '30 minutes');
     logger.info('[Auth] Sent password reset email to', user.email);
   }
 

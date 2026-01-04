@@ -103,15 +103,22 @@ export function businessRejectedTemplate(data: { businessName: string; reason?: 
   return wrapTemplate(content);
 }
 
-export function passwordResetTemplate(data: { resetUrl: string }) {
+export function passwordResetTemplate(data: { resetUrl: string; expiryDuration?: string }) {
+  const expiry = data.expiryDuration || '1 hour';
   const content = `
     <h2 style="margin: 0 0 20px; font-size: 24px; color: #111;">Reset your password</h2>
     <p style="margin-bottom: 16px;">We received a request to reset the password for your SHOUT account.</p>
     <p style="margin-bottom: 24px;">If you didn't make this request, you can safely ignore this email.</p>
-    <div style="text-align: center;">
+    <div style="text-align: center; margin: 30px 0;">
       <a href="${data.resetUrl}" style="${buttonStyle}">Reset Password</a>
     </div>
-    <p style="margin-top: 24px; font-size: 14px; color: #666;">This link will expire in 1 hour for security reasons.</p>
+    <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 12px; margin-bottom: 24px; text-align: center;">
+      <p style="margin: 0; color: #c2410c; font-size: 14px;">
+        <strong>Note:</strong> This link will expire in <strong>${expiry}</strong>.
+      </p>
+    </div>
+    <p style="font-size: 14px; color: #666;">If the button doesn't work, copy and paste this link into your browser:</p>
+    <p style="font-size: 13px; color: #888; word-break: break-all;">${data.resetUrl}</p>
   `;
   return wrapTemplate(content);
 }

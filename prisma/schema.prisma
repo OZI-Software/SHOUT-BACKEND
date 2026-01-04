@@ -30,13 +30,19 @@ enum BusinessStatus {
   REJECTED
 }
 
+enum AcceptanceStatus {
+  PENDING // Offer accepted by user, QR generated, not yet scanned
+  REDEEMED // QR scanned by business
+  EXPIRED // QR expired before scanning
+}
+
 model User {
   // Corresponds to PK id (uuid)
   userId String @id @default(uuid())
 
   // Corresponds to email (string)
   email String? @unique
-  
+
   // Mobile number for login
   mobileNumber String? @unique
 
@@ -63,8 +69,10 @@ model User {
   createdOffers Offer[] @relation("AdminOffers")
 
   // Customer relations
-  favorites FavoriteOffer[]
-  reviews   Review[]
+  favorites          FavoriteOffer[]
+  reviews            Review[]
+  acceptances        OfferAcceptance[]
+  favoriteBusinesses FavoriteBusiness[]
 
   @@map("users")
 }
@@ -93,10 +101,10 @@ model Business {
   longitude      Float
 
   // Business hours
-  openingTime   String?  // e.g., "09:00"
-  closingTime   String?  // e.g., "22:00"
-  workingDays   String?  // e.g., "Mon,Tue,Wed,Thu,Fri,Sat,Sun"
-  isOpen24Hours Boolean  @default(false)
+  openingTime   String? // e.g., "09:00"
+  closingTime   String? // e.g., "22:00"
+  workingDays   String? // e.g., "Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+  isOpen24Hours Boolean @default(false)
 
   // Corresponds to created_at
   createdAt DateTime @default(now())
@@ -115,12 +123,29 @@ model Business {
   // ABC Code for business registration
   abcCode String?
 
+  // New fields for Business Profile
+  abn      String? // Australian Business Number
+  category String? // e.g., Food, Clothing, Fuel
+  images   String[] // Array of image URLs (Cloudinary)
+
   // Reviews
-  reviews Review[]
+  reviews     Review[]
+  favoritedBy FavoriteBusiness[]
 
   @@index([latitude, longitude, businessId])
   @@index([status])
   @@map("businesses")
+}
+
+model FavoriteBusiness {
+  userId     String
+  businessId String
+  user       User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  business   Business @relation(fields: [businessId], references: [businessId], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([userId, businessId])
+  @@map("favorite_businesses")
 }
 
 model Offer {
@@ -139,6 +164,9 @@ model Offer {
 
   // Corresponds to image_url (string)
   imageUrl String
+
+  // Validity of the QR code in days (set by business admin)
+  qrValidityDays Int @default(1)
 
   // Corresponds to status (enum)
   status OfferStatus @default(DRAFT)
@@ -160,20 +188,53 @@ model Offer {
   // Corresponds to created_at
   createdAt DateTime @default(now())
 
+  // Relations
+  favoritedBy FavoriteOffer[]
+  acceptances OfferAcceptance[]
+
   @@index([creatorId])
   @@index([repostedFromOfferId])
   @@index([status, startDateTime, endDateTime])
   @@map("offers")
-  
-  // Relations
-  favoritedBy FavoriteOffer[]
+}
+
+model OfferAcceptance {
+  id String @id @default(uuid())
+
+  // Relation to User (Customer)
+  userId String
+  user   User   @relation(fields: [userId], references: [userId])
+
+  // Relation to Offer
+  offerId String
+  offer   Offer  @relation(fields: [offerId], references: [id])
+
+  // Unique QR Code string (could be a uuid or signed token)
+  qrCode String @unique
+
+  // Status of the acceptance
+  status AcceptanceStatus @default(PENDING)
+
+  // When the offer was accepted
+  acceptedAt DateTime @default(now())
+
+  // When the QR code expires
+  expiresAt DateTime
+
+  // When it was redeemed (if applicable)
+  redeemedAt DateTime?
+
+  @@index([userId])
+  @@index([offerId])
+  @@index([qrCode])
+  @@map("offer_acceptances")
 }
 
 model FavoriteOffer {
-  userId  String
-  offerId String
-  user    User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  offer   Offer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  userId    String
+  offerId   String
+  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@id([userId, offerId])
@@ -182,18 +243,18 @@ model FavoriteOffer {
 
 model Review {
   id String @id @default(uuid())
-  
+
   userId String
   user   User   @relation(fields: [userId], references: [userId])
-  
+
   businessId String
   business   Business @relation(fields: [businessId], references: [businessId], onDelete: Cascade)
-  
-  rating Int // 1-5
+
+  rating  Int // 1-5
   comment String?
-  
+
   createdAt DateTime @default(now())
-  
+
   @@index([businessId])
   @@map("reviews")
 }

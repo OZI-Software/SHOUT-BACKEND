@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { favoritesController } from './favorites.controller.js';
-import { authMiddleware } from '../../core/middleware/auth.middleware.js';
+import { authMiddleware as authenticate } from '../../core/middleware/auth.middleware.js';
 
 const router = Router();
 
-router.post('/:offerId', authMiddleware, favoritesController.toggleFavorite);
-router.get('/', authMiddleware, favoritesController.getFavorites);
+// Protected routes
+router.use(authenticate);
+
+router.post('/toggle', favoritesController.toggleBusinessFavorite);
+router.get('/my', favoritesController.getMyFavorites);
 
 export const favoritesRoutes = router;

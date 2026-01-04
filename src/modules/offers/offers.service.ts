@@ -10,6 +10,7 @@ export interface CreateOfferDto {
     startDateTime: Date;
     endDateTime: Date;
     status?: OfferStatus;
+    qrValidityDays?: number;
 }
 
 export interface UpdateOfferDto {
@@ -19,6 +20,7 @@ export interface UpdateOfferDto {
     status?: OfferStatus;
     startDateTime?: Date;
     endDateTime?: Date;
+    qrValidityDays?: number;
 }
 
 class OfferService {
@@ -26,7 +28,7 @@ class OfferService {
         logger.info(`[Offers] Creating new offer for creatorId: ${creatorId}`);
         try {
             const newOffer = await db.offer.create({
-                data: { ...dto, creatorId, status: dto.status || 'DRAFT' },
+                data: { ...dto, creatorId, status: dto.status || 'DRAFT', qrValidityDays: dto.qrValidityDays || 1 },
             });
             logger.info(`[Offers] Offer created - offerId: ${newOffer.id}`);
             return newOffer;
@@ -84,6 +86,7 @@ class OfferService {
             startDateTime: new Date(),
             endDateTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000),
             status: 'DRAFT',
+            qrValidityDays: originalOffer.qrValidityDays,
         };
 
         return await db.offer.create({
@@ -111,6 +114,7 @@ class OfferService {
                                 pinCode: true,
                                 latitude: true,
                                 longitude: true,
+                                category: true,
                             }
                         }
                     }
@@ -147,6 +151,7 @@ class OfferService {
                     businessPinCode: business?.pinCode,
                     businessLatitude: business?.latitude,
                     businessLongitude: business?.longitude,
+                    businessCategory: business?.category,
                     // Optional fields omitted due to DB column mismatch
                     distanceInMeters,
                 };

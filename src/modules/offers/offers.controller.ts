@@ -1,5 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import { offerService } from './offers.service.js';
+import { offerAcceptanceService } from './offers.acceptance.service.js';
 import { HttpError } from '../../config/index.js';
 import type { AuthRequest } from '../../config/index.js';
 import type { OfferStatus, BusinessStatus } from '@prisma/client';
@@ -188,6 +189,7 @@ class OfferController {
       if (req.body.status && Object.values({ DRAFT: 'DRAFT', SCHEDULED: 'SCHEDULED', ACTIVE: 'ACTIVE', EXPIRED: 'EXPIRED' } as Record<string, OfferStatus>).includes(req.body.status)) {
         updateData.status = req.body.status;
       }
+      if (req.body.qrValidityDays) updateData.qrValidityDays = parseInt(req.body.qrValidityDays, 10);
 
       // If no valid fields were provided for update
       if (Object.keys(updateData).length === 0) {
@@ -201,6 +203,43 @@ class OfferController {
       next(error);
     }
   }
+
+  // POST /api/v1/offers/:id/accept
+  public acceptOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+      const { id } = req.params;
+      const acceptance = await offerAcceptanceService.acceptOffer(req.user.userId, id as string);
+      res.status(201).json({ status: 'success', data: acceptance });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // POST /api/v1/offers/validate-qr
+  public validateQr = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+      const { qrCode } = req.body;
+      if (!qrCode) throw new HttpError('QR Code is required', 400);
+
+      const result = await offerAcceptanceService.validateQr(req.user.userId, qrCode);
+      res.status(200).json({ status: 'success', message: 'Offer redeemed successfully', data: result });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // GET /api/v1/offers/stats/acceptances (Super Admin)
+  public getAllAcceptances = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      // Role check should be in middleware, but double check here if needed or just rely on route
+      const stats = await offerAcceptanceService.getAllAcceptances();
+      res.status(200).json({ status: 'success', data: stats });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const offerController = new OfferController();

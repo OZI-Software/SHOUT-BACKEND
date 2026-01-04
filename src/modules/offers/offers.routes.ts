@@ -46,6 +46,31 @@ class OffersRoutes {
     this.router.delete('/:id', offerController.deleteOffer);
 
     // TODO: Add PUT/DELETE routes with creatorId check for authorization
+
+    // -- Offer Acceptance Routes --
+
+    // Super Admin Stats (Must come before :id routes)
+    this.router.get(
+      '/stats/acceptances',
+      authMiddleware,
+      rolesMiddleware(['SUPER_ADMIN'] as unknown as UserRole[]),
+      offerController.getAllAcceptances
+    );
+
+    // Business Admin Validate QR (Must come before :id routes)
+    this.router.post(
+      '/validate-qr',
+      authMiddleware,
+      rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
+      offerController.validateQr
+    );
+
+    // Customer Accept Offer
+    this.router.post(
+      '/:id/accept',
+      authMiddleware,
+      offerController.acceptOffer
+    );
   }
 }
 

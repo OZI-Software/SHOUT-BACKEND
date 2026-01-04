@@ -1,77 +1,41 @@
 import { db } from '../../core/db/prisma.js';
 import { HttpError } from '../../config/index.js';
 
-class ReviewsService {
-    public async addReview(userId: string, businessId: string, rating: number, comment?: string) {
-        if (rating < 1 || rating > 5) {
-            throw new HttpError('Rating must be between 1 and 5', 400);
-        }
+export interface CreateReviewDto {
+    businessId: string;
+    rating: number;
+    comment: string;
+}
 
-        // Check if user already reviewed this business
-        const existingReview = await db.review.findFirst({
-            where: {
-                userId,
-                businessId,
-            },
-        });
+class ReviewService {
+    public async createReview(userId: string, dto: CreateReviewDto) {
+        // user cannot review same business multiple times? 
+        // For now, let's allow it or maybe check existence.
 
-        if (existingReview) {
-            throw new HttpError('You have already reviewed this business', 400);
-        }
-
-        const review = await db.review.create({
+        return await db.review.create({
             data: {
                 userId,
-                businessId,
-                rating,
-                comment: comment ?? null,
-            },
-            include: {
-                user: {
-                    select: {
-                        userId: true,
-                        email: true,
-                        name: true,
-                    },
-                },
-            },
+                businessId: dto.businessId,
+                rating: dto.rating,
+                comment: dto.comment
+            }
         });
-
-        return review;
     }
 
-    public async getReviews(businessId: string) {
-        const reviews = await db.review.findMany({
+    public async getBusinessReviews(businessId: string) {
+        return await db.review.findMany({
             where: { businessId },
             include: {
                 user: {
                     select: {
-                        userId: true,
-                        email: true,
                         name: true,
-                    },
-                },
+                        // avatar?
+                    }
+                }
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: 'desc' }
         });
-        return reviews;
-    }
-
-    public async getMyReviews(userId: string) {
-        const reviews = await db.review.findMany({
-            where: { userId },
-            include: {
-                business: {
-                    select: {
-                        businessId: true,
-                        businessName: true,
-                    },
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-        return reviews;
     }
 }
 
-export const reviewsService = new ReviewsService();
+export const reviewService = new ReviewService();

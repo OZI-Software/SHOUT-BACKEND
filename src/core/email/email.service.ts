@@ -56,8 +56,8 @@ export const emailService = {
       htmlContent: html,
     });
   },
-  async sendPasswordReset(toEmail: string, resetUrl: string) {
-    const html = passwordResetTemplate({ resetUrl });
+  async sendPasswordReset(toEmail: string, resetUrl: string, expiryDuration: string = '30 minutes') {
+    const html = passwordResetTemplate({ resetUrl, expiryDuration });
     return send({
       to: [{ email: toEmail }],
       subject: 'Reset your password',

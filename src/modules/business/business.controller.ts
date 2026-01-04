@@ -98,6 +98,16 @@ class BusinessController {
       next(error)
     }
   }
+
+  // GET /api/v1/business/categories
+  public getCategories = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const categories = await businessService.getCategories();
+      res.status(200).json({ status: 'success', count: categories.length, data: categories });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const businessController = new BusinessController();

@@ -15,6 +15,9 @@ interface BusinessUpdateDto {
   closingTime?: string;
   workingDays?: string;
   isOpen24Hours?: boolean;
+  abn?: string;
+  category?: string;
+  images?: string[];
 }
 
 // Returned shape includes business-hours fields
@@ -49,6 +52,9 @@ class BusinessService {
         closingTime: true,
         workingDays: true,
         isOpen24Hours: true,
+        abn: true,
+        category: true,
+        images: true,
       },
     });
 
@@ -92,6 +98,9 @@ class BusinessService {
           closingTime: true,
           workingDays: true,
           isOpen24Hours: true,
+          abn: true,
+          category: true,
+          images: true,
         },
       });
 
@@ -135,6 +144,9 @@ class BusinessService {
         closingTime: true,
         workingDays: true,
         isOpen24Hours: true,
+        abn: true,
+        category: true,
+        images: true,
       },
     })
     if (!biz) {
@@ -217,11 +229,26 @@ class BusinessService {
         closingTime: true,
         workingDays: true,
         isOpen24Hours: true,
+        abn: true,
+        category: true,
+        images: true,
       },
       take: 20
     });
 
     return businesses;
+  }
+
+  /**
+   * Get all unique business categories
+   */
+  public async getCategories(): Promise<string[]> {
+    const categories = await db.business.findMany({
+      select: { category: true },
+      distinct: ['category'],
+      where: { category: { not: null } }
+    });
+    return categories.map(c => c.category!).filter(Boolean);
   }
 }
 

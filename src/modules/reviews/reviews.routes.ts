@@ -1,16 +1,13 @@
 import { Router } from 'express';
 import { reviewsController } from './reviews.controller.js';
-import { authMiddleware } from '../../core/middleware/auth.middleware.js';
+import { authMiddleware as authenticate } from '../../core/middleware/auth.middleware.js';
 
 const router = Router();
 
-// Publicly viewable reviews? Yes, "when profile is viisted to public users"
-router.get('/:businessId', reviewsController.getReviews);
+// Public routes
+router.get('/:businessId', reviewsController.getBusinessReviews);
 
-// Add review requires auth
-router.post('/:businessId', authMiddleware, reviewsController.addReview);
-
-// Get my reviews
-router.get('/me/list', authMiddleware, reviewsController.getMyReviews);
+// Protected routes
+router.post('/', authenticate, reviewsController.createReview);
 
 export const reviewsRoutes = router;
