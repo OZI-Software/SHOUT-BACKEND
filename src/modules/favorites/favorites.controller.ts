@@ -26,6 +26,30 @@ class FavoritesController {
             next(error);
         }
     };
+
+    public toggleOfferFavorite = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            if (!req.user) throw new HttpError('Unauthorized', 401);
+            const { offerId } = req.params;
+
+            if (!offerId) throw new HttpError('Offer ID is required', 400);
+
+            const result = await favoritesService.toggleFavoriteOffer(req.user.userId, offerId);
+            res.status(200).json({ status: 'success', data: result });
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    public getMyFavoriteOffers = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            if (!req.user) throw new HttpError('Unauthorized', 401);
+            const favorites = await favoritesService.getUserFavoriteOffers(req.user.userId);
+            res.status(200).json({ status: 'success', data: favorites });
+        } catch (error) {
+            next(error);
+        }
+    };
 }
 
 export const favoritesController = new FavoritesController();

@@ -7,7 +7,12 @@ const router = Router();
 // Protected routes
 router.use(authenticate);
 
-router.post('/toggle', favoritesController.toggleBusinessFavorite);
-router.get('/my', favoritesController.getMyFavorites);
+// Business Favorites
+router.post('/toggle-business', favoritesController.toggleBusinessFavorite);
+router.get('/my-businesses', favoritesController.getMyFavorites);
+
+// Offer Favorites - Matches client-api.ts endpoints
+router.get('/', favoritesController.getMyFavoriteOffers);
+router.post('/:offerId', favoritesController.toggleOfferFavorite);
 
 export const favoritesRoutes = router;

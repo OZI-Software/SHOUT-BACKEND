@@ -27,6 +27,13 @@ class OffersRoutes {
       offerController.getMyOffers
     );
 
+    // Customer Acceptance List (Requires Auth)
+    this.router.get(
+      '/my-acceptances',
+      authMiddleware,
+      offerController.getMyAcceptances
+    );
+
     // Public route to fetch a specific offer by id (must come AFTER '/mine')
     this.router.get('/:id', offerController.getOfferById);
 
