@@ -2,6 +2,7 @@ import type { Response, NextFunction } from 'express';
 import { analyticsService } from './analytics.service.js';
 import type { AuthRequest } from '../../config/index.js';
 import { HttpError } from '../../config/index.js';
+import { logger } from '../../core/utils/logger.js';
 
 class AnalyticsController {
 
@@ -11,6 +12,8 @@ class AnalyticsController {
         try {
             const { type, offerId, businessId } = req.body;
             const userId = req.user?.userId; // Optional
+
+            logger.info(`[Analytics Controller] Received track request: ${JSON.stringify(req.body)}`);
 
             if (!type) {
                 throw new HttpError('Event type is required', 400);
@@ -25,10 +28,9 @@ class AnalyticsController {
 
             res.status(200).json({ status: 'success' });
         } catch (error) {
-            // Analytics failures shouldn't crash app, but we log in service
-            // Return 200 even if failed? Or 400? 
-            // Better to return 200 to frontend for non-critical tracking
-            res.status(200).json({ status: 'ignored' });
+            logger.error('[Analytics Controller] Failed to track event:', error);
+            // Still return 200 to client to avoid disrupting UX, but log error on server
+            res.status(200).json({ status: 'error', message: 'Tracking failed internally but handled gracefully' });
         }
     };
 

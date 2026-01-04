@@ -21,6 +21,7 @@ interface AnalyticsQueryDto {
 export class AnalyticsService {
 
     public async trackEvent(dto: TrackEventDto) {
+        logger.info(`[Analytics] Tracking event: ${dto.type} | Offer: ${dto.offerId} | Business: ${dto.businessId} | User: ${dto.userId}`);
         try {
             await db.analyticsEvent.create({
                 data: {
@@ -33,14 +34,18 @@ export class AnalyticsService {
             // Optionally increment counters on Offer model for quick access (if desired)
             if (dto.offerId) {
                 if (dto.type === 'OFFER_VIEW') {
-                    await db.offer.update({ where: { id: dto.offerId }, data: { viewCount: { increment: 1 } } }).catch(() => { });
+                    await db.offer.update({ where: { id: dto.offerId }, data: { viewCount: { increment: 1 } } });
                 } else if (dto.type === 'OFFER_IMPRESSION') {
-                    await db.offer.update({ where: { id: dto.offerId }, data: { impressionCount: { increment: 1 } } }).catch(() => { });
+                    await db.offer.update({ where: { id: dto.offerId }, data: { impressionCount: { increment: 1 } } });
                 }
             }
         } catch (error) {
             logger.error('Error tracking analytics event:', error);
-            // Fail silently to not block user flow, but log error
+            // Log full error details including stack trace if available
+            if (error instanceof Error) {
+                logger.error(error.stack);
+            }
+            throw error; // Re-throw to make it visible to controller
         }
     }
 

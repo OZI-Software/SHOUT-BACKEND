@@ -18,7 +18,7 @@ export const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024
 class UploadsController {
   public uploadImage = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      if (!req.user) throw new HttpError('Not authenticated', 401);
+      // if (!req.user) throw new HttpError('Not authenticated', 401); // Temporarily commented for signup upload
       const file = (req as any).file as Express.Multer.File | undefined;
       if (!file || !file.buffer) {
         throw new HttpError('No file uploaded', 400);

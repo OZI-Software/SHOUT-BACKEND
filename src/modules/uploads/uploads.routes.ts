@@ -14,8 +14,8 @@ class UploadsRoutes {
     // Restrict to ADMIN and STAFF for now
     this.router.post(
       '/image',
-      authMiddleware,
-      rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
+      // authMiddleware, // Temporarily disabled to allow uploads during registration
+      // rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
       upload.single('file'),
       uploadsController.uploadImage,
     );

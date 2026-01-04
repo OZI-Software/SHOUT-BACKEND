@@ -140,9 +140,7 @@ class AuthService {
         });
 
         if (isBusiness) {
-          if (!abcCode) {
-            throw new HttpError('ABC Code is required for business registration', 400);
-          }
+
           logger.info('[AuthService] Creating business profile for user:', user.userId);
           const missing: string[] = [];
           if (!businessData.businessName) missing.push('businessName');
