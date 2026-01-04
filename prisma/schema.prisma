@@ -165,6 +165,10 @@ model Offer {
   // Corresponds to image_url (string)
   imageUrl String
 
+  // Analytics tracking
+  viewCount       Int @default(0)
+  impressionCount Int @default(0)
+
   // Validity of the QR code in days (set by business admin)
   qrValidityDays Int @default(1)
 

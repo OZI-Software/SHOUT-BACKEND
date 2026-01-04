@@ -30,7 +30,15 @@ class OffersRoutes {
     // Public route to fetch a specific offer by id (must come AFTER '/mine')
     this.router.get('/:id', offerController.getOfferById);
 
-    // Create new offer
+    // Customer Accept Offer (requires auth but NOT role restriction)
+    // MUST come BEFORE role-restricted middleware
+    this.router.post(
+      '/:id/accept',
+      authMiddleware,
+      offerController.acceptOffer
+    );
+
+    // Apply role restrictions for business admin routes below
     this.router.use(authMiddleware, rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]));
     // Accept either an uploaded image file or a direct imageUrl
     this.router.post('/', imageUpload.single('file'), offerController.createOffer);
@@ -63,13 +71,6 @@ class OffersRoutes {
       authMiddleware,
       rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
       offerController.validateQr
-    );
-
-    // Customer Accept Offer
-    this.router.post(
-      '/:id/accept',
-      authMiddleware,
-      offerController.acceptOffer
     );
   }
 }

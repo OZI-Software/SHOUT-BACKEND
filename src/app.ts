@@ -12,6 +12,7 @@ import { businessRoutes } from './modules/business/business.routes.js';
 import { offersRoutes } from './modules/offers/offers.routes.js';
 import { uploadsRoutes } from './modules/uploads/uploads.routes.js';
 import adminRoutes from './modules/admin/business-approvals.routes.js';
+import superAdminRoutes from './modules/admin/super-admin.routes.js';
 import { favoritesRoutes } from './modules/favorites/favorites.routes.js';
 import { reviewsRoutes } from './modules/reviews/reviews.routes.js';
 
@@ -77,6 +78,10 @@ export class App {
 
     // Admin routes for business approvals
     this.app.use('/api/v1/admin', adminRoutes);
+
+    // Super Admin routes
+    logger.debug('[App] Configuring super admin routes: /api/v1/super-admin');
+    this.app.use('/api/v1/super-admin', superAdminRoutes);
 
     logger.debug('[App] Configuring favorites routes: /api/v1/favorites');
     this.app.use('/api/v1/favorites', favoritesRoutes);
