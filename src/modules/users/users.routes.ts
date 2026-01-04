@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { userController } from './users.controller.js';
-import { authMiddleware, roleMiddleware } from '../../core/middleware/auth.middleware.js';
+import { authMiddleware, roleMiddleware, rolesMiddleware } from '../../core/middleware/auth.middleware.js';
 import type { UserRole } from "@prisma/client";
 
 /**
@@ -21,7 +21,8 @@ class UserRoutes {
     this.router.get('/:id', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), userController.getUserById);
 
     // Get all users (requires ADMIN or SUPER_ADMIN role)
-    this.router.get('/', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), userController.getAllUsers);
+    // Updated to allow SUPER_ADMIN to see the list
+    this.router.get('/', authMiddleware, rolesMiddleware(['ADMIN', 'SUPER_ADMIN'] as unknown as UserRole[]), userController.getAllUsers);
 
     // Add more routes: e.g., POST, PUT, DELETE
   }

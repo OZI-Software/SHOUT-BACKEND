@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { analyticsController } from './analytics.controller.js';
-import { authMiddleware, rolesMiddleware } from '../../core/middleware/auth.middleware.js';
+import { authMiddleware, rolesMiddleware, optionalAuthMiddleware } from '../../core/middleware/auth.middleware.js';
 import type { UserRole } from '@prisma/client';
 
 export class AnalyticsRoutes {
@@ -11,9 +11,7 @@ export class AnalyticsRoutes {
     }
 
     private initializeRoutes() {
-        this.router.post('/track', (req, res, next) => {
-            next();
-        }, analyticsController.trackEvent);
+        this.router.post('/track', optionalAuthMiddleware, analyticsController.trackEvent);
 
         // Super Admin Analytics stats
         this.router.get(
