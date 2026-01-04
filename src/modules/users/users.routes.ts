@@ -11,14 +11,17 @@ class UserRoutes {
 
   constructor() {
     this.initializeRoutes();
-  } 
+  }
 
   private initializeRoutes() {
     // Get currently authenticated user's profile
     this.router.get('/me', authMiddleware, userController.getMe);
-    
+
     // Get a user by ID (requires ADMIN role for fetching others' profiles)
     this.router.get('/:id', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), userController.getUserById);
+
+    // Get all users (requires ADMIN or SUPER_ADMIN role)
+    this.router.get('/', authMiddleware, roleMiddleware('ADMIN' as unknown as UserRole), userController.getAllUsers);
 
     // Add more routes: e.g., POST, PUT, DELETE
   }

@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from 'express';
 import { userService } from './users.service.js';
 import { HttpError } from '../../config/index.js'
-import type {AuthRequest} from '../../config/index.js';
+import type { AuthRequest } from '../../config/index.js';
 import { logger } from '../../core/utils/logger.js';
 
 /**
@@ -18,7 +18,7 @@ class UserController {
 
       // Fetch the full user details using the service layer
       const user = await userService.findUserById(req.user.userId);
-      
+
       res.status(200).json({
         status: 'success',
         data: user,
@@ -37,6 +37,19 @@ class UserController {
       res.status(200).json({
         status: 'success',
         data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // GET /api/v1/users/
+  public getAllUsers = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const users = await userService.findAll();
+      res.status(200).json({
+        status: 'success',
+        data: users,
       });
     } catch (error) {
       next(error);

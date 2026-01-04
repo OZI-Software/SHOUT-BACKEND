@@ -1,7 +1,7 @@
 import { db } from '../../core/db/prisma.js';
 import type { User } from '@prisma/client';
 import { HttpError } from '../../config/index.js';
-import { logger } from '../../core/utils/logger.js';    
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Handles database operations related to the User model.
@@ -11,7 +11,7 @@ class UserService {
   public async findUserById(userId: string): Promise<PublicUser> {
     const user = await db.user.findUnique({
       where: { userId },
-      select: { userId: true, email: true, role: true, createdAt: true },
+      select: { userId: true, email: true, role: true, createdAt: true, name: true, mobileNumber: true },
     });
 
     if (!user) {
@@ -20,10 +20,18 @@ class UserService {
     return user;
   }
 
+  // Find all users (for admin listing)
+  public async findAll(): Promise<PublicUser[]> {
+    return db.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { userId: true, email: true, role: true, createdAt: true, name: true, mobileNumber: true },
+    });
+  }
+
   // Add more methods: createUser, updateUser, deleteUser, etc.
 }
 
 export const userService = new UserService();
 
 // Safe, public-facing user shape (no password hash or sensitive fields)
-export type PublicUser = Pick<User, 'userId' | 'email' | 'role' | 'createdAt'>;
+export type PublicUser = Pick<User, 'userId' | 'email' | 'role' | 'createdAt' | 'name' | 'mobileNumber'>;
