@@ -20,12 +20,46 @@ class UserService {
     return user;
   }
 
-  // Find all users (for admin listing)
-  public async findAll(): Promise<PublicUser[]> {
-    return db.user.findMany({
+  // Find all users (for admin listing) with stats
+  public async findAll(): Promise<any[]> {
+    const users = await db.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { userId: true, email: true, role: true, createdAt: true, name: true, mobileNumber: true },
+      select: {
+        userId: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        name: true,
+        mobileNumber: true,
+        // Activity stats
+        _count: {
+          select: {
+            favorites: true,
+            acceptances: true,
+            createdOffers: true
+          }
+        },
+        // Business details if they are admins
+        business: {
+          select: {
+            businessName: true
+          }
+        },
+        adminForBusiness: {
+          select: {
+            businessName: true
+          }
+        }
+      },
     });
+
+    return users.map(user => ({
+      ...user,
+      favoritesCount: user._count.favorites,
+      acceptancesCount: user._count.acceptances,
+      createdOffersCount: user._count.createdOffers,
+      businessName: user.business?.businessName || user.adminForBusiness?.businessName || null
+    }));
   }
 
   // Add more methods: createUser, updateUser, deleteUser, etc.

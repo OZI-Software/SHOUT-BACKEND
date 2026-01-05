@@ -79,6 +79,14 @@ class OffersRoutes {
       rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
       offerController.validateQr
     );
+
+    // Business Admin Preview QR (Must come before :id routes)
+    this.router.get(
+      '/qr/:code',
+      authMiddleware,
+      rolesMiddleware(['ADMIN', 'STAFF'] as unknown as UserRole[]),
+      offerController.getAcceptanceByQr
+    );
   }
 }
 

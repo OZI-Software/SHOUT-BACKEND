@@ -164,7 +164,22 @@ export class AnalyticsService {
             }
         });
 
-        const result = allOffers.map(offer => {
+        // Global Business Visits (Include those without offerId)
+        const businessVisitWhere: any = {
+            createdAt: { gte: startDate, lte: endDate },
+            type: 'BUSINESS_VIEW'
+        };
+        if (businessId) {
+            businessVisitWhere.businessId = businessId;
+        }
+        const totalBusinessVisits = await db.analyticsEvent.count({ where: businessVisitWhere });
+
+        // Sum up other metrics from the grouped data for convenience, or fetch counts
+        const totalViews = views.reduce((acc, curr) => acc + curr._count._all, 0);
+        const totalImpressions = impressions.reduce((acc, curr) => acc + curr._count._all, 0);
+        const totalFavorites = favorites.reduce((acc, curr) => acc + curr._count._all, 0);
+
+        const items = allOffers.map(offer => {
             const stats = statsMap.get(offer.id) || {};
             return {
                 ...offer,
@@ -180,11 +195,20 @@ export class AnalyticsService {
             };
         });
 
-        // Sort by popularity (views + impressions + acceptances?)
-        // Default sort: views desc
-        result.sort((a, b) => b.metrics.views - a.metrics.views);
 
-        return result;
+
+        // Sorting
+        items.sort((a, b) => b.metrics.views - a.metrics.views);
+
+        return {
+            items,
+            totals: {
+                views: totalViews,
+                impressions: totalImpressions,
+                businessVisits: totalBusinessVisits,
+                favorites: totalFavorites
+            }
+        };
     }
 
     private getDateRange(query: AnalyticsQueryDto): { startDate: Date, endDate: Date } {

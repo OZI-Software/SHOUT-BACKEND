@@ -44,14 +44,20 @@ class AnalyticsController {
 
             const { period, startDate, endDate, businessId } = req.query;
 
-            const data = await analyticsService.getOfferStats({
+            const result = await analyticsService.getOfferStats({
                 period: period as any,
                 startDate: startDate as string,
                 endDate: endDate as string,
                 businessId: businessId as string
             });
 
-            res.status(200).json({ status: 'success', count: data.length, data });
+            res.status(200).json({
+                status: 'success',
+                data: {
+                    items: result.items,
+                    totals: result.totals
+                }
+            });
         } catch (error) {
             next(error);
         }

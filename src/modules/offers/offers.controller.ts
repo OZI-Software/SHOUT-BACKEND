@@ -216,7 +216,8 @@ class OfferController {
     }
   };
 
-  // POST /api/v1/offers/validate-qr
+
+  // POST /api/v1/offers/validate-qr (Redeem)
   public validateQr = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new HttpError('Not authenticated', 401);
@@ -225,6 +226,26 @@ class OfferController {
 
       const result = await offerAcceptanceService.validateQr(req.user.userId, qrCode);
       res.status(200).json({ status: 'success', message: 'Offer redeemed successfully', data: result });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // GET /api/v1/offers/qr/:code (Preview)
+  public getAcceptanceByQr = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      // Role check: Only Business Admins/Staff should be able to check
+      if (!req.user) throw new HttpError('Not authenticated', 401);
+
+      const { code } = req.params;
+      const result = await offerAcceptanceService.getAcceptanceByQr(code as string);
+
+      // Authorization check (ownership)
+      if (result.offer.creatorId !== req.user.userId) {
+        throw new HttpError('Forbidden: This offer does not belong to your business', 403);
+      }
+
+      res.status(200).json({ status: 'success', data: result });
     } catch (error) {
       next(error);
     }

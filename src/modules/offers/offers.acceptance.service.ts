@@ -179,6 +179,38 @@ class OfferAcceptanceService {
             }
         });
     }
+    /**
+     * Get acceptance details by QR code (Preview).
+     */
+    public async getAcceptanceByQr(qrCode: string) {
+        const acceptance = await (db as any).offerAcceptance.findUnique({
+            where: { qrCode },
+            include: {
+                offer: {
+                    select: {
+                        title: true,
+                        description: true,
+                        imageUrl: true,
+                        startDateTime: true,
+                        endDateTime: true,
+                        creatorId: true
+                    }
+                },
+                user: {
+                    select: {
+                        name: true,
+                        email: true
+                    }
+                }
+            }
+        });
+
+        if (!acceptance) {
+            throw new HttpError('Invalid QR Code', 404);
+        }
+
+        return acceptance;
+    }
 }
 
 export const offerAcceptanceService = new OfferAcceptanceService();
