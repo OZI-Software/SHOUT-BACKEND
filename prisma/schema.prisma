@@ -286,6 +286,8 @@ enum AnalyticsEventType {
   OFFER_IMPRESSION
   OFFER_VIEW
   BUSINESS_VIEW
+  OFFER_FAVORITE
+  OFFER_SHARE
 }
 
 model AnalyticsEvent {

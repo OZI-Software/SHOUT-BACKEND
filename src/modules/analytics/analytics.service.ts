@@ -23,6 +23,22 @@ export class AnalyticsService {
     public async trackEvent(dto: TrackEventDto) {
         logger.info(`[Analytics] Tracking event: ${dto.type} | Offer: ${dto.offerId} | Business: ${dto.businessId} | User: ${dto.userId}`);
         try {
+            // If businessId is missing but offerId is present, fetch it from the offer
+            if (dto.offerId && !dto.businessId) {
+                const offer = await db.offer.findUnique({
+                    where: { id: dto.offerId },
+                    select: {
+                        creator: {
+                            select: { business: { select: { businessId: true } } }
+                        }
+                    }
+                });
+                if (offer?.creator?.business?.businessId) {
+                    // eslint-disable-next-line no-param-reassign
+                    dto.businessId = offer.creator.business.businessId;
+                }
+            }
+
             await db.analyticsEvent.create({
                 data: {
                     type: dto.type,
@@ -52,7 +68,7 @@ export class AnalyticsService {
     public async getOfferStats(query: AnalyticsQueryDto) {
         let { startDate, endDate } = this.getDateRange(query);
         const { businessId } = query;
-
+        logger.info(`[Analytics Debug] Date Range: Start=${startDate.toISOString()}, End=${endDate.toISOString()}`);
         logger.info(`[Analytics] Fetching stats from ${startDate} to ${endDate} ${businessId ? `for business ${businessId}` : ''}`);
 
         const whereClause: any = {
@@ -68,7 +84,7 @@ export class AnalyticsService {
         }
 
         // Use groupBy to get counts
-        const [views, impressions, bizVisits] = await Promise.all([
+        const [views, impressions, shares] = await Promise.all([
             db.analyticsEvent.groupBy({
                 by: ['offerId'],
                 where: { ...whereClause, type: 'OFFER_VIEW' },
@@ -81,7 +97,7 @@ export class AnalyticsService {
             }),
             db.analyticsEvent.groupBy({
                 by: ['offerId'],
-                where: { ...whereClause, type: 'BUSINESS_VIEW' },
+                where: { ...whereClause, type: 'OFFER_SHARE' },
                 _count: { _all: true }
             })
         ]);
@@ -133,9 +149,10 @@ export class AnalyticsService {
 
         process(views, 'viewCount');
         process(impressions, 'impressionCount');
-        process(bizVisits, 'businessVisitCount');
+        // process(bizVisits, 'businessVisitCount'); // Removed as logic was flawed for per-offer attribution
         process(favorites, 'favoriteCount');
         process(acceptances, 'acceptanceCount');
+        process(shares, 'shareCount');
 
         // Fetch Offers
         const offerWhere: any = {};
@@ -178,6 +195,7 @@ export class AnalyticsService {
         const totalViews = views.reduce((acc, curr) => acc + curr._count._all, 0);
         const totalImpressions = impressions.reduce((acc, curr) => acc + curr._count._all, 0);
         const totalFavorites = favorites.reduce((acc, curr) => acc + curr._count._all, 0);
+        const totalShares = shares.reduce((acc, curr) => acc + curr._count._all, 0);
 
         const items = allOffers.map(offer => {
             const stats = statsMap.get(offer.id) || {};
@@ -190,9 +208,10 @@ export class AnalyticsService {
                     impressions: stats.impressionCount || 0,
                     businessVisits: stats.businessVisitCount || 0,
                     favorites: stats.favoriteCount || 0,
-                    acceptances: stats.acceptanceCount || 0
+                    acceptances: stats.acceptanceCount || 0,
+                    shares: stats.shareCount || 0
                 }
-            };
+            }
         });
 
 
@@ -206,15 +225,18 @@ export class AnalyticsService {
                 views: totalViews,
                 impressions: totalImpressions,
                 businessVisits: totalBusinessVisits,
-                favorites: totalFavorites
+                favorites: totalFavorites,
+                shares: totalShares
             }
-        };
+        }
+
     }
 
     private getDateRange(query: AnalyticsQueryDto): { startDate: Date, endDate: Date } {
         const now = new Date();
+        // Clone for endDate to prevent it being mutated if 'now' is mutated
+        let endDate = new Date(now);
         let startDate = new Date(0); // Epoch
-        let endDate = now;
 
         if (query.startDate && query.endDate) {
             startDate = new Date(query.startDate);
@@ -222,11 +244,15 @@ export class AnalyticsService {
             // Adjust endDate to end of day if it's just a date string? 
             // Assuming ISO strings from frontend
         } else if (query.period === 'today') {
-            startDate = new Date(now.setHours(0, 0, 0, 0));
+            // Clone now for start date calculation
+            startDate = new Date(now);
+            startDate.setHours(0, 0, 0, 0);
         } else if (query.period === 'week') {
             const day = now.getDay();
             const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is sunday
-            startDate = new Date(now.setDate(diff));
+            // Clone now for start date calculation
+            startDate = new Date(now);
+            startDate.setDate(diff);
             startDate.setHours(0, 0, 0, 0);
         } else if (query.period === 'month') {
             startDate = new Date(now.getFullYear(), now.getMonth(), 1);
